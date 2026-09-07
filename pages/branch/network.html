@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Network Simulator | NetBankX</title>
+  <meta name="description" content="Branch-to-branch secure data sync with full OSI layer visualization.">
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <link rel="stylesheet" href="../../css/network.css">
+  <style>
+    /* ── OSI Trace Panel ──────────────────────────────────── */
+    #branchOsiPanel {
+      margin-top: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    #branchOsiTraceList {
+      padding: 1rem 1.25rem;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .layer-legend {
+      display:flex;flex-wrap:wrap;gap:6px;
+      padding:10px 1.25rem;
+      border-bottom:1px solid var(--border);
+      background:rgba(0,0,0,0.15);
+    }
+    .layer-legend-item {
+      display:inline-flex;align-items:center;gap:4px;
+      font-size:0.65rem;padding:2px 8px;border-radius:10px;
+      font-weight:700;
+    }
+    @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+    @keyframes slideIn { from { opacity:0;transform:translateY(16px); } to { opacity:1;transform:translateY(0); } }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['hq','regional','branch']);</script>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏧</div>
+        <div class="logo-name">NetBankX</div>
+        <div class="logo-role">BRANCH</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="network.html" class="nav-link active"><span class="nav-icon">🌐</span><span class="nav-label">Network Sim</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--branch" id="sidebarAvatar">BR</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebarName">Branch Admin</div>
+            <div class="user-role-text">Branch Router</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">🌐 Branch Network Simulator</h1>
+          <p class="page-subtitle">Visualize branch-to-branch data sync with full OSI layer trace</p>
+        </div>
+        <div class="page-actions">
+          <span style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;">
+            <span class="pulse-dot"></span> Online
+          </span>
+        </div>
+      </div>
+
+      <div class="content-body">
+        <!-- Stats Row -->
+        <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);" id="netStatsDisplay">
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--blue">📤</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statSent">0</div>
+              <div class="stat-title">Packets Sent</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--teal" style="background:rgba(255,82,82,0.1);color:#ff5252;">📭</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statLost">0</div>
+              <div class="stat-title">Packets Lost</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--teal" style="background:rgba(255,171,64,0.1);color:#ffab40;">🔄</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statRetx">0</div>
+              <div class="stat-title">Retransmitted</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--green">⚡</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statLatency">0ms</div>
+              <div class="stat-title">Avg Latency</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas + Controls Layout -->
+        <div class="network-layout">
+          <div>
+            <div class="network-canvas-wrapper">
+              <canvas id="networkCanvas"></canvas>
+            </div>
+          </div>
+
+          <div class="network-panel">
+            <!-- Uplink Controls -->
+            <div class="control-section broadcast-center">
+              <div class="control-section-title">📡 Uplink Controls</div>
+              <button class="broadcast-btn broadcast-btn--up" onclick="NetworkSim.doBranchReport()">
+                ↑ Send Report to HQ
+              </button>
+              <button class="broadcast-btn broadcast-btn--alert" onclick="NetworkSim.doBroadcast('alert')">
+                ↑ Escalate Alert to Hub
+              </button>
+              <button class="broadcast-btn" onclick="NetworkSim.doBroadcast('policy')">
+                ↓ Receive Policy from HQ
+              </button>
+            </div>
+
+            <!-- Inter-Branch Secure Sync -->
+            <div class="control-section" style="margin-bottom:1.5rem;">
+              <div class="control-section-title" style="color:var(--info);border-bottom:1px solid #1e2d4f;padding-bottom:6px;margin-bottom:10px;">
+                🔁 Inter-Branch Secure Sync
+              </div>
+              <div style="font-size:0.72rem;color:#5c6bc0;margin-bottom:8px;">
+                Select destination branch — will show full 5-hop OSI trace
+              </div>
+              <select id="destBranchSelect" style="width:100%;padding:8px;margin-bottom:10px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;font-family:var(--font-main);">
+                <option value="DL-NDL-001">Delhi — Connaught Place (DL-NDL-001)</option>
+                <option value="DL-NDL-002">Delhi — South Delhi (DL-NDL-002)</option>
+                <option value="DL-GGN-001">Delhi — Gurgaon (DL-GGN-001)</option>
+                <option value="KA-BLR-001">Bangalore — Koramangala (KA-BLR-001)</option>
+                <option value="KA-BLR-002">Bangalore — Whitefield (KA-BLR-002)</option>
+                <option value="KA-MYS-001">Mysore (KA-MYS-001)</option>
+                <option value="MH-MUM-002">Mumbai West (MH-MUM-002)</option>
+                <option value="MH-PUN-001">Pune Central (MH-PUN-001)</option>
+                <option value="MH-NGP-001">Nagpur (MH-NGP-001)</option>
+              </select>
+
+              <!-- TLS Toggle -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px;background:rgba(0,230,118,0.05);border:1px solid rgba(0,230,118,0.2);border-radius:6px;">
+                <div>
+                  <div style="font-size:0.75rem;font-weight:600;color:#00e676;" id="tlsLabel">🔒 TLS 1.3 ON</div>
+                  <div style="font-size:0.65rem;color:#5c6bc0;">Toggle to simulate insecure channel</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:42px;height:22px;cursor:pointer;">
+                  <input type="checkbox" id="tlsToggle" checked style="opacity:0;width:0;height:0;">
+                  <span id="tlsSlider" style="position:absolute;inset:0;background:#00e676;border-radius:22px;transition:0.3s;">
+                    <span style="position:absolute;left:3px;top:3px;width:16px;height:16px;background:white;border-radius:50%;transition:0.3s;transform:translateX(20px);display:block;"></span>
+                  </span>
+                </label>
+              </div>
+
+              <button class="btn btn-primary" style="width:100%;" id="syncBtn"
+                onclick="initBranchSync()">
+                🔐 Initiate Secure Sync + OSI Trace
+              </button>
+            </div>
+
+            <!-- Simulation Controls -->
+            <div class="control-section">
+              <div class="control-section-title">⚙ Simulation Controls</div>
+              <div class="slider-row">
+                <div class="slider-label"><span>Network Latency</span><span class="slider-value" id="latencyVal">20ms</span></div>
+                <input type="range" min="0" max="500" value="20" id="latencySlider">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label"><span>Packet Loss %</span><span class="slider-value" id="lossVal">5%</span></div>
+                <input type="range" min="0" max="30" value="5" id="lossSlider">
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="NetworkSim.breakLink()">💥 Break Link</button>
+                <button class="btn btn-success btn-sm" onclick="NetworkSim.resetNetwork()">↺ Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transmission Log -->
+        <div class="network-log-section" style="margin-top:1rem;">
+          <div class="card-header">
+            <h3>📋 Branch Transmission Log</h3>
+            <button onclick="document.getElementById('networkLog').innerHTML=''" class="btn btn-ghost btn-sm">Clear</button>
+          </div>
+          <div class="network-log" id="networkLog" style="height:130px;"></div>
+        </div>
+
+        <!-- ── OSI Layer Trace Panel ── -->
+        <div id="branchOsiPanel">
+          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:rgba(0,172,193,0.06);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#00acc1;box-shadow:0 0 8px #00acc1;"></div>
+              <div>
+                <div style="font-size:0.9rem;font-weight:700;color:#e8eaf6;">🔁 Branch-to-Branch OSI Layer Trace</div>
+                <div style="font-size:0.7rem;color:#5c6bc0;">5 hops · All OSI layers · Security analysis</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="branchHopCounter" style="font-size:0.72rem;color:#5c6bc0;">0 / 5 hops</span>
+              <button onclick="document.getElementById('branchOsiTraceList').innerHTML='<div style=\'text-align:center;padding:32px;color:#5c6bc0;\'><div style=\'font-size:2.5rem;opacity:0.3;\'>🔁</div><div style=\'font-size:0.82rem;\'>Click Initiate Secure Sync to see the OSI trace</div></div>'; document.getElementById('branchHopCounter').textContent='0 / 5 hops';" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="layer-legend">
+            <span class="layer-legend-item" style="background:rgba(124,77,255,0.1);color:#7c4dff;border:1px solid #7c4dff44;">💻 L7 Application</span>
+            <span class="layer-legend-item" style="background:rgba(83,109,254,0.1);color:#536dfe;border:1px solid #536dfe44;">🔐 L6 Presentation</span>
+            <span class="layer-legend-item" style="background:rgba(30,136,229,0.1);color:#1e88e5;border:1px solid #1e88e544;">🤝 L5 Session</span>
+            <span class="layer-legend-item" style="background:rgba(0,172,193,0.1);color:#00acc1;border:1px solid #00acc144;">📦 L4 Transport</span>
+            <span class="layer-legend-item" style="background:rgba(67,160,71,0.1);color:#43a047;border:1px solid #43a04744;">🌐 L3 Network</span>
+            <span class="layer-legend-item" style="background:rgba(251,140,0,0.1);color:#fb8c00;border:1px solid #fb8c0044;">🔗 L2 Data Link</span>
+            <span class="layer-legend-item" style="background:rgba(229,57,53,0.1);color:#e53935;border:1px solid #e5393544;">⚡ L1 Physical</span>
+            <span style="margin-left:auto;font-size:0.65rem;color:#5c6bc0;align-self:center;">
+              Source/Dest branches: L1–L7 &nbsp;|&nbsp; Intermediate hubs: L1–L3
+            </span>
+          </div>
+
+          <!-- Trace List -->
+          <div id="branchOsiTraceList">
+            <div style="text-align:center;padding:32px;color:#5c6bc0;">
+              <div style="font-size:2.5rem;margin-bottom:8px;opacity:0.3;">🔁</div>
+              <div style="font-size:0.82rem;">Click <strong>Initiate Secure Sync</strong> to see the live OSI layer trace</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /content-body -->
+    </main>
+  </div>
+
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/osi-trace.js"></script>
+  <script src="../../js/network-sim.js"></script>
+  <script>
+    /* ── Setup sidebar ── */
+    if (session && session.user) {
+      document.getElementById('sidebarName').textContent = session.user.name || 'Branch Admin';
+      if (session.user.avatar) document.getElementById('sidebarAvatar').textContent = session.user.avatar;
+    }
+
+    /* ── Init network ── */
+    const branchId = session && session.user && session.user.branchId
+      ? session.user.branchId + '-RT'
+      : 'MH-MUM-001-RT';
+    NetworkSim.init('networkCanvas', 'branch', { branchId });
+
+    /* ── Sliders ── */
+    document.getElementById('latencySlider').addEventListener('input', function () {
+      document.getElementById('latencyVal').textContent = this.value + 'ms';
+      NetworkSim.setLatency(parseInt(this.value));
+    });
+    document.getElementById('lossSlider').addEventListener('input', function () {
+      document.getElementById('lossVal').textContent = this.value + '%';
+      NetworkSim.setPacketLoss(parseInt(this.value));
+    });
+
+    /* ── TLS Toggle ── */
+    const tlsToggle = document.getElementById('tlsToggle');
+    const tlsLabel  = document.getElementById('tlsLabel');
+    const tlsSlider = document.getElementById('tlsSlider');
+    const tlsThumb  = tlsSlider.querySelector('span');
+
+    tlsToggle.addEventListener('change', function () {
+      NetworkSim.setTLS(this.checked);
+      if (this.checked) {
+        tlsLabel.textContent = '🔒 TLS 1.3 ON';
+        tlsLabel.style.color = '#00e676';
+        tlsSlider.style.background = '#00e676';
+        tlsThumb.style.transform = 'translateX(20px)';
+      } else {
+        tlsLabel.textContent = '⚠️ TLS OFF (Plaintext)';
+        tlsLabel.style.color = '#ff5252';
+        tlsSlider.style.background = '#ff5252';
+        tlsThumb.style.transform = 'translateX(0)';
+      }
+    });
+
+    /* ── Hop counter patch ── */
+    let branchHopCount = 0;
+    const origAddHop = window.OSITrace ? window.OSITrace.addHop.bind(window.OSITrace) : null;
+    if (window.OSITrace && origAddHop) {
+      window.OSITrace.addHop = function (cid, idx, opts, mode) {
+        branchHopCount = idx + 1;
+        document.getElementById('branchHopCounter').textContent = branchHopCount + ' / 5 hops';
+        origAddHop(cid, idx, opts, mode);
+      };
+    }
+
+    /* ── Initiate Sync ── */
+    function initBranchSync() {
+      const destVal = document.getElementById('destBranchSelect').value;
+      branchHopCount = 0;
+      document.getElementById('branchHopCounter').textContent = '0 / 5 hops';
+
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Syncing...';
+
+      NetworkSim.sendBranchToBranch(destVal);
+
+      /* Re-enable after animation (approx 8s) */
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = '🔐 Initiate Secure Sync + OSI Trace';
+      }, 9000);
+    }
+  </script>
+</body>
+</html>

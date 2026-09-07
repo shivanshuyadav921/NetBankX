@@ -1,0 +1,307 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transaction History - NetBankX Customer Portal</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .txn-detail-row {
+      background: var(--bg-primary);
+    }
+    .txn-row { cursor: pointer; }
+    .txn-row:hover { background: var(--bg-hover); }
+  </style>
+</head>
+<body class="dashboard-body">
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Customer Portal</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">🏠</span><span class="nav-label">My Account</span></a>
+        <a href="transfer.html" class="nav-link"><span class="nav-icon">💸</span><span class="nav-label">Transfer Funds</span></a>
+        <a href="history.html" class="nav-link active"><span class="nav-icon">📜</span><span class="nav-label">History</span></a>
+        <a href="requests.html" class="nav-link"><span class="nav-icon">📬</span><span class="nav-label">Requests</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--customer" id="userAvatar">..</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Account Holder</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Transaction History</h1>
+          <p class="page-subtitle">Your complete account activity</p>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <!-- Summary Stats -->
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem;">
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--green">↓</div>
+            <div class="stat-info">
+              <div class="stat-title">Total Credits This Month</div>
+              <div class="stat-value" id="statCredits">₹ 0.00</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--warning">↑</div>
+            <div class="stat-info">
+              <div class="stat-title">Total Debits This Month</div>
+              <div class="stat-value" id="statDebits">₹ 0.00</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--blue">∑</div>
+            <div class="stat-info">
+              <div class="stat-title">Net Change</div>
+              <div class="stat-value" id="statNet">₹ 0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body" style="padding-bottom: 0;">
+            <!-- Filter Bar -->
+            <div class="filter-bar" style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; align-items:flex-end;">
+              <div class="filter-group">
+                <label class="form-label">Search</label>
+                <input type="text" id="filterSearch" class="form-control" placeholder="TXN ID or Description">
+              </div>
+              <div class="filter-group">
+                <label class="form-label">Type</label>
+                <select id="filterType" class="form-control">
+                  <option value="all">All Transactions</option>
+                  <option value="credit">Credits</option>
+                  <option value="debit">Debits</option>
+                  <option value="transfer">Transfers</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="form-label">Date From</label>
+                <input type="date" id="filterDateFrom" class="form-control">
+              </div>
+              <div class="filter-group">
+                <label class="form-label">Date To</label>
+                <input type="date" id="filterDateTo" class="form-control">
+              </div>
+              <button class="btn btn-secondary" id="clearFiltersBtn">Clear Filters</button>
+            </div>
+          </div>
+
+          <div class="card-body table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>TXN ID</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Balance After</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <tr><td colspan="7" style="text-align:center;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer" style="display:flex; justify-content:space-between; align-items:center;">
+            <div id="paginationInfo" style="font-size:0.85rem; color:var(--text-muted);">Showing 1-10 of X</div>
+            <div style="display:flex; gap:0.5rem;">
+              <button class="btn btn-sm btn-secondary" id="prevPage">← Prev</button>
+              <button class="btn btn-sm btn-secondary" id="nextPage">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const session = requireAuth(['customer']); if (!session) return;
+      const u = session.user;
+
+      // Populate sidebar
+      document.getElementById('userAvatar').textContent = u.avatar || u.name.substring(0, 2).toUpperCase();
+      document.getElementById('userName').textContent = u.name;
+
+      let allTxns = MOCK_DATA.transactions.filter(t => t.fromAccount === u.id || t.toAccount === u.id);
+      
+      // Sort by date descending
+      allTxns.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      // Generate fake balances for demo
+      let fakeBal = u.balance;
+      const txnsWithBalance = allTxns.map(t => {
+        const isCredit = t.toAccount === u.id;
+        const balAfter = fakeBal;
+        fakeBal = isCredit ? fakeBal - t.amount : fakeBal + t.amount; 
+        return { ...t, balanceAfter: balAfter, isCredit };
+      });
+
+      // Calculate stats for current month
+      const now = new Date();
+      let monthCredits = 0;
+      let monthDebits = 0;
+      
+      txnsWithBalance.forEach(t => {
+        const tDate = new Date(t.timestamp);
+        if (tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear()) {
+          if (t.isCredit) monthCredits += t.amount;
+          else monthDebits += t.amount;
+        }
+      });
+      
+      document.getElementById('statCredits').textContent = `${formatCurrency(monthCredits)}`;
+      document.getElementById('statDebits').textContent = `${formatCurrency(monthDebits)}`;
+      const net = monthCredits - monthDebits;
+      const statNetEl = document.getElementById('statNet');
+      statNetEl.textContent = `${net >= 0 ? '+' : '-'}₹ ${formatCurrency(Math.abs(net))}`;
+      statNetEl.style.color = net >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+
+      let filteredTxns = [...txnsWithBalance];
+      let currentPage = 1;
+      const itemsPerPage = 10;
+
+      const renderTable = () => {
+        const tbody = document.getElementById('historyTableBody');
+        tbody.innerHTML = '';
+        
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = Math.min(start + itemsPerPage, filteredTxns.length);
+        const paginated = filteredTxns.slice(start, end);
+
+        if (paginated.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No transactions found</td></tr>';
+          document.getElementById('paginationInfo').textContent = `Showing 0 of 0`;
+          return;
+        }
+
+        paginated.forEach((t, i) => {
+          let typeBadge = '';
+          if (t.type === 'transfer') typeBadge = '<span class="badge badge-info">Transfer</span>';
+          else if (t.isCredit) typeBadge = '<span class="badge badge-success">Credit</span>';
+          else typeBadge = '<span class="badge badge-warning">Debit</span>';
+
+          const tr = document.createElement('tr');
+          tr.className = 'txn-row';
+          tr.innerHTML = `
+            <td>${new Date(t.timestamp).toLocaleString()}</td>
+            <td style="font-family:var(--font-mono); font-size:0.85rem;">${t.id}</td>
+            <td>${t.description}</td>
+            <td>${typeBadge}</td>
+            <td class="${t.isCredit ? 'amount-credit' : 'amount-debit'}">${t.isCredit ? '+' : '-'}₹${formatCurrency(t.amount)}</td>
+            <td>₹${formatCurrency(t.balanceAfter)}</td>
+            <td><span class="badge badge-success">Completed</span></td>
+          `;
+
+          // Expandable detail row
+          const detailTr = document.createElement('tr');
+          detailTr.className = 'txn-detail-row';
+          detailTr.style.display = 'none';
+          detailTr.innerHTML = `
+            <td colspan="7">
+              <div style="padding:0.75rem; background:var(--bg-secondary); border-radius:4px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; font-size:0.8rem;">
+                  <div><span style="color:var(--text-muted)">Network Path:</span><br> HQ → Regional → Branch</div>
+                  <div><span style="color:var(--text-muted)">Latency:</span><br> ${Math.floor(Math.random() * 50 + 10)}ms</div>
+                  <div><span style="color:var(--text-muted)">Packets:</span><br> 4 sent / 4 received</div>
+                </div>
+              </div>
+            </td>
+          `;
+
+          tr.addEventListener('click', () => {
+            const isVisible = detailTr.style.display !== 'none';
+            detailTr.style.display = isVisible ? 'none' : 'table-row';
+          });
+
+          tbody.appendChild(tr);
+          tbody.appendChild(detailTr);
+        });
+
+        document.getElementById('paginationInfo').textContent = `Showing ${start + 1}-${end} of ${filteredTxns.length}`;
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = end >= filteredTxns.length;
+      };
+
+      const applyFilters = () => {
+        const search = document.getElementById('filterSearch').value.toLowerCase();
+        const type = document.getElementById('filterType').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+
+        filteredTxns = txnsWithBalance.filter(t => {
+          const matchSearch = t.id.toLowerCase().includes(search) || t.description.toLowerCase().includes(search);
+          let matchType = true;
+          if (type === 'credit') matchType = t.isCredit;
+          else if (type === 'debit') matchType = !t.isCredit;
+          else if (type === 'transfer') matchType = t.type === 'transfer';
+          
+          let matchDate = true;
+          const tDate = new Date(t.timestamp);
+          if (dateFrom) matchDate = matchDate && tDate >= new Date(dateFrom);
+          if (dateTo) {
+            const dTo = new Date(dateTo);
+            dTo.setHours(23, 59, 59, 999);
+            matchDate = matchDate && tDate <= dTo;
+          }
+          
+          return matchSearch && matchType && matchDate;
+        });
+
+        currentPage = 1;
+        renderTable();
+      };
+
+      document.getElementById('filterSearch').addEventListener('input', applyFilters);
+      document.getElementById('filterType').addEventListener('change', applyFilters);
+      document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
+      document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+
+      document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        document.getElementById('filterSearch').value = '';
+        document.getElementById('filterType').value = 'all';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        applyFilters();
+      });
+
+      document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) { currentPage--; renderTable(); }
+      });
+      document.getElementById('nextPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(filteredTxns.length / itemsPerPage);
+        if (currentPage < totalPages) { currentPage++; renderTable(); }
+      });
+
+      renderTable();
+    });
+  </script>
+</body>
+</html>
+
+

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Customers | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .eye-btn { background: none; border: none; cursor: pointer; color: #666; margin-left: 0.5rem; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: #fff; padding: 2rem; border-radius: 8px; width: 100%; max-width: 600px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .info-item label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; }
+    .info-item div { font-weight: 500; }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['branch']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏦</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Branch Operations</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="customers.html" class="nav-link active"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--branch" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Branch Manager</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Branch Customers</h1>
+          <p class="page-subtitle">Customers registered at this branch</p>
+        </div>
+      </div>
+      <div class="content-body">
+        
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Account No</th>
+                  <th>Name</th>
+                  <th>Account Type</th>
+                  <th>Balance</th>
+                  <th>Phone</th>
+                  <th>KYC</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="customerModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Customer Details</h2>
+        <button class="close-btn" onclick="closeModal('customerModal')">×</button>
+      </div>
+      <div class="info-grid" id="customerDetailsContent"></div>
+      <div style="text-align: right; margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+        <button class="btn btn-secondary" onclick="alert('Message sent successfully!')">Send Message</button>
+        <button class="btn btn-primary" onclick="closeModal('customerModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    function showModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    const myBranchId = session.user.branchId;
+    const revealedBalances = new Set();
+    window.toggleBalance = function(id) {
+      if(revealedBalances.has(id)) revealedBalances.delete(id);
+      else revealedBalances.add(id);
+      renderCustomers();
+    }
+
+    window.viewCustomer = function(id) {
+      const c = (window.MOCK_DATA.users.customers || []).find(x => x.id === id);
+      if(!c) return;
+      
+      const html = `
+        <div class="info-item"><label>Full Name</label><div>${c.name}</div></div>
+        <div class="info-item"><label>Account No</label><div><span class="id-cell">${c.id}</span></div></div>
+        <div class="info-item"><label>Account Type</label><div>${c.accountType}</div></div>
+        <div class="info-item"><label>Balance</label><div class="amount-credit">${formatCurrency(c.balance)}</div></div>
+        <div class="info-item"><label>Phone</label><div>${c.phone || 'N/A'}</div></div>
+        <div class="info-item"><label>Email</label><div>${c.email || 'N/A'}</div></div>
+        <div class="info-item"><label>KYC Status</label><div><span class="badge ${c.kycStatus === 'verified' ? 'badge-success' : 'badge-warning'}">${c.kycStatus}</span></div></div>
+        <div class="info-item"><label>Join Date</label><div>${formatDate(c.joinDate)}</div></div>
+      `;
+      document.getElementById('customerDetailsContent').innerHTML = html;
+      showModal('customerModal');
+    }
+
+    function renderCustomers() {
+      const filtered = (window.MOCK_DATA.users.customers || []).filter(c => c.branchId === myBranchId);
+
+      const html = filtered.map(c => {
+        const maskedAcc = c.id.substring(0, 3) + 'XXXX';
+        const bal = revealedBalances.has(c.id) ? `<span class="amount-credit">${formatCurrency(c.balance)}</span>` : `<span>₹ &bull;&bull;&bull;&bull;&bull;&bull;</span>`;
+        const kycBadge = c.kycStatus === 'verified' ? 'badge-success' : 'badge-warning';
+        
+        return `
+        <tr>
+          <td><span class="id-cell">${maskedAcc}</span></td>
+          <td>${c.name}</td>
+          <td>${c.accountType}</td>
+          <td>${bal} <button class="eye-btn" onclick="toggleBalance('${c.id}')">👁</button></td>
+          <td>${c.phone || 'N/A'}</td>
+          <td><span class="badge ${kycBadge}">${c.kycStatus}</span></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="viewCustomer('${c.id}')">View</button></td>
+        </tr>
+        `;
+      }).join('');
+      
+      document.getElementById('customersTable').innerHTML = html || '<tr><td colspan="7" style="text-align:center">No customers found.</td></tr>';
+    }
+
+    renderCustomers();
+  </script>
+</body>
+</html>

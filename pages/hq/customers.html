@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Directory | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: #fff; padding: 2rem; border-radius: 8px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .info-item label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; }
+    .info-item div { font-weight: 500; }
+    .eye-btn { background: none; border: none; cursor: pointer; color: #666; margin-left: 0.5rem; }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['hq']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Headquarters</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="regions.html" class="nav-link"><span class="nav-icon">🗺</span><span class="nav-label">Regions</span></a>
+        <a href="branches.html" class="nav-link"><span class="nav-icon">🏦</span><span class="nav-label">Branches</span></a>
+        <a href="customers.html" class="nav-link active"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--hq" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">HQ Administrator</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Customer Directory</h1>
+          <p class="page-subtitle">All account holders in the system</p>
+        </div>
+        <div class="page-actions">
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input type="text" class="form-control search-input" id="custSearch" placeholder="🔍 Search name or account..." oninput="renderCustomers()">
+            <select class="form-control" id="regionFilter" onchange="renderCustomers()">
+              <option value="">All Regions</option>
+            </select>
+            <select class="form-control" id="typeFilter" onchange="renderCustomers()">
+              <option value="">All Types</option>
+              <option value="Savings">Savings</option>
+              <option value="Current">Current</option>
+              <option value="Corporate">Corporate</option>
+            </select>
+            <select class="form-control" id="kycFilter" onchange="renderCustomers()">
+              <option value="">All KYC Status</option>
+              <option value="verified">Verified</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <span class="badge badge-muted" id="custCount">0 customers</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Account No</th>
+                  <th>Name</th>
+                  <th>Branch</th>
+                  <th>Account Type</th>
+                  <th>Balance</th>
+                  <th>KYC</th>
+                  <th>Join Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customersTable">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="customerModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Customer Details</h2>
+        <button class="close-btn" onclick="closeModal('customerModal')">×</button>
+      </div>
+      <div class="info-grid" id="customerDetailsContent">
+        <!-- Rendered via JS -->
+      </div>
+      <h3 style="margin-top: 1.5rem; margin-bottom: 1rem;">Recent Transactions</h3>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="custTxnsTable">
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align: right; margin-top: 1.5rem;">
+        <button class="btn btn-secondary" onclick="closeModal('customerModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    function showModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Populate regions
+    const regionFilter = document.getElementById('regionFilter');
+    (window.MOCK_DATA.regions || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.name;
+      regionFilter.appendChild(opt);
+    });
+
+    const revealedBalances = new Set();
+    function toggleBalance(id) {
+      if(revealedBalances.has(id)) revealedBalances.delete(id);
+      else revealedBalances.add(id);
+      renderCustomers();
+    }
+    
+    function viewCustomer(id) {
+      const c = (window.MOCK_DATA.users.customers || []).find(x => x.id === id);
+      if(!c) return;
+      
+      const html = `
+        <div class="info-item"><label>Full Name</label><div>${c.name}</div></div>
+        <div class="info-item"><label>Account No</label><div><span class="id-cell">${c.id}</span></div></div>
+        <div class="info-item"><label>Account Type</label><div>${c.accountType}</div></div>
+        <div class="info-item"><label>Balance</label><div class="amount-credit">${formatCurrency(c.balance)}</div></div>
+        <div class="info-item"><label>Branch ID</label><div>${c.branchId}</div></div>
+        <div class="info-item"><label>Region ID</label><div>${c.regionId}</div></div>
+        <div class="info-item"><label>Phone</label><div>${c.phone || 'N/A'}</div></div>
+        <div class="info-item"><label>Email</label><div>${c.email || 'N/A'}</div></div>
+        <div class="info-item"><label>KYC Status</label><div><span class="badge ${c.kycStatus === 'verified' ? 'badge-success' : 'badge-warning'}">${c.kycStatus}</span></div></div>
+        <div class="info-item"><label>Join Date</label><div>${formatDate(c.joinDate)}</div></div>
+      `;
+      document.getElementById('customerDetailsContent').innerHTML = html;
+
+      // Last 3 transactions
+      const txns = (window.MOCK_DATA.transactions || []).filter(t => t.fromAccount === c.id || t.toAccount === c.id).slice(0, 3);
+      const txnsHtml = txns.map(t => {
+        let amtClass = (t.toAccount === c.id || t.type.toLowerCase() === 'credit') ? 'amount-credit' : 'amount-debit';
+        return `
+          <tr>
+            <td>${formatDate(t.date)}</td>
+            <td>${t.type}</td>
+            <td class="${amtClass}">${formatCurrency(t.amount)}</td>
+            <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('custTxnsTable').innerHTML = txnsHtml || '<tr><td colspan="4">No recent transactions</td></tr>';
+
+      showModal('customerModal');
+    }
+
+    function renderCustomers() {
+      const search = document.getElementById('custSearch').value.toLowerCase();
+      const region = document.getElementById('regionFilter').value;
+      const type = document.getElementById('typeFilter').value.toLowerCase();
+      const kyc = document.getElementById('kycFilter').value.toLowerCase();
+      
+      const filtered = (window.MOCK_DATA.users.customers || []).filter(c => {
+        const matchesSearch = c.name.toLowerCase().includes(search) || c.id.toLowerCase().includes(search);
+        const matchesRegion = !region || c.regionId === region;
+        const matchesType = !type || c.accountType.toLowerCase() === type;
+        const matchesKyc = !kyc || (c.kycStatus || '').toLowerCase() === kyc;
+        return matchesSearch && matchesRegion && matchesType && matchesKyc;
+      });
+
+      document.getElementById('custCount').textContent = `${filtered.length} customers`;
+
+      const html = filtered.map(c => {
+        const maskedAcc = c.id.substring(0, 3) + 'XXXX';
+        const bal = revealedBalances.has(c.id) ? `<span class="amount-credit">${formatCurrency(c.balance)}</span>` : `<span>₹ &bull;&bull;&bull;&bull;&bull;&bull;</span>`;
+        const kycBadge = c.kycStatus === 'verified' ? 'badge-success' : 'badge-warning';
+        
+        return `
+        <tr>
+          <td><span class="id-cell">${maskedAcc}</span></td>
+          <td>${c.name}</td>
+          <td>${c.branchId}</td>
+          <td>${c.accountType}</td>
+          <td>${bal} <button class="eye-btn" onclick="toggleBalance('${c.id}')">👁</button></td>
+          <td><span class="badge ${kycBadge}">${c.kycStatus}</span></td>
+          <td>${formatDate(c.joinDate)}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="viewCustomer('${c.id}')">View Details</button>
+          </td>
+        </tr>
+        `;
+      }).join('');
+      
+      document.getElementById('customersTable').innerHTML = html || '<tr><td colspan="8" style="text-align:center">No customers found.</td></tr>';
+    }
+
+    renderCustomers();
+  </script>
+</body>
+</html>

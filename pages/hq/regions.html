@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regional Offices | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .info-row { margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+    .info-row strong { color: #555; }
+    .stats-row { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee; display: flex; gap: 0.5rem; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: #fff; padding: 2rem; border-radius: 8px; width: 100%; max-width: 500px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['hq']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Headquarters</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="regions.html" class="nav-link active"><span class="nav-icon">🗺</span><span class="nav-label">Regions</span></a>
+        <a href="branches.html" class="nav-link"><span class="nav-icon">🏦</span><span class="nav-label">Branches</span></a>
+        <a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--hq" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">HQ Administrator</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Regional Offices</h1>
+          <p class="page-subtitle">Manage state-level banking regions</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="showModal('addRegionModal')">+ Add Region</button>
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input type="text" class="form-control search-input" id="regionSearch" placeholder="🔍 Search regions..." oninput="renderRegions()">
+            <select class="form-control" id="statusFilter" style="width:140px" onchange="renderRegions()">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <span class="badge badge-muted" id="regionCount">0 regions</span>
+          </div>
+        </div>
+
+        <div class="grid-3" id="regionContainer">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="addRegionModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Region</h2>
+        <button class="close-btn" onclick="closeModal('addRegionModal')">×</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Region Name</label>
+        <input type="text" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">State</label>
+        <input type="text" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">City</label>
+        <input type="text" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Head Name</label>
+        <input type="text" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact</label>
+        <input type="text" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Established Year</label>
+        <input type="number" class="form-control">
+      </div>
+      <div style="display:flex; gap:1rem; margin-top:2rem;">
+        <button class="btn btn-secondary" onclick="closeModal('addRegionModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="closeModal('addRegionModal')">Save Region</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    function showModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function renderRegions() {
+      const search = document.getElementById('regionSearch').value.toLowerCase();
+      const status = document.getElementById('statusFilter').value.toLowerCase();
+      
+      const filtered = (window.MOCK_DATA.regions || []).filter(r => {
+        const matchesSearch = r.name.toLowerCase().includes(search) || (r.state && r.state.toLowerCase().includes(search));
+        const matchesStatus = !status || (r.status || '').toLowerCase() === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      document.getElementById('regionCount').textContent = `${filtered.length} regions`;
+
+      const html = filtered.map(r => {
+        const bCount = r.branches ? r.branches.length : 0;
+        const cCount = (window.MOCK_DATA.users.customers || []).filter(c => c.regionId === r.id).length;
+        
+        return `
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">${r.name}</h3>
+            <span class="badge ${getStatusBadgeClass(r.status)}">${r.status}</span>
+          </div>
+          <div class="card-body">
+            <div class="info-row"><strong>State:</strong> <span>${r.state || 'N/A'}</span></div>
+            <div class="info-row"><strong>City:</strong> <span>${r.city || 'N/A'}</span></div>
+            <div class="info-row"><strong>Regional Head:</strong> <span>${r.head || 'N/A'}</span></div>
+            <div class="info-row"><strong>Established:</strong> <span>${r.established || '2020'}</span></div>
+            <div class="info-row"><strong>Contact:</strong> <span>${r.contact || 'N/A'}</span></div>
+            <div class="stats-row">
+              <span class="badge badge-info">${bCount} Branches</span>
+              <span class="badge badge-success">${cCount} Customers</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-ghost btn-sm" onclick="window.location.href='branches.html?region=${r.id}'">View Branches</button>
+            <button class="btn btn-ghost btn-sm">Edit</button>
+          </div>
+        </div>
+        `;
+      }).join('');
+      
+      document.getElementById('regionContainer').innerHTML = html || '<div class="empty-state" style="grid-column: span 3; text-align:center;">No regions found matching criteria.</div>';
+    }
+
+    renderRegions();
+  </script>
+</body>
+</html>

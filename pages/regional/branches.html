@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Region Branches | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['regional']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏢</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Regional Office</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="branches.html" class="nav-link active"><span class="nav-icon">🏦</span><span class="nav-label">Branches</span></a>
+        <a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--regional" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Regional Head</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Region Branches</h1>
+          <p class="page-subtitle" id="pageSubtitle">Branches in this region</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" disabled title="Contact HQ to add branches" style="opacity: 0.6; cursor: not-allowed;">+ Add Branch</button>
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input type="text" class="form-control search-input" id="branchSearch" placeholder="🔍 Search branches or IFSC..." oninput="renderBranches()">
+            <select class="form-control" id="statusFilter" onchange="renderBranches()">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <span class="badge badge-muted" id="branchCount">0 branches</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Branch Code</th>
+                  <th>Branch Name</th>
+                  <th>City</th>
+                  <th>Manager</th>
+                  <th>Customers</th>
+                  <th>IFSC</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="branchesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    const myRegionId = session.user.regionId;
+    const regionObj = (window.MOCK_DATA.regions || []).find(r => r.id === myRegionId);
+    if(regionObj) document.getElementById('pageSubtitle').textContent = `Branches in ${regionObj.name} Region`;
+
+    function renderBranches() {
+      const search = document.getElementById('branchSearch').value.toLowerCase();
+      const status = document.getElementById('statusFilter').value.toLowerCase();
+      
+      const filtered = (window.MOCK_DATA.branches || []).filter(b => b.regionId === myRegionId).filter(b => {
+        const matchesSearch = b.name.toLowerCase().includes(search) || (b.ifsc && b.ifsc.toLowerCase().includes(search)) || b.id.toLowerCase().includes(search);
+        const matchesStatus = !status || (b.status || '').toLowerCase() === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      document.getElementById('branchCount').textContent = `${filtered.length} branches`;
+
+      const html = filtered.map(b => {
+        const cCount = (window.MOCK_DATA.users.customers || []).filter(c => c.branchId === b.id).length;
+        return `
+        <tr>
+          <td><span class="id-cell">${b.id}</span></td>
+          <td>${b.name}</td>
+          <td>${b.city || 'N/A'}</td>
+          <td>${b.manager || 'N/A'}</td>
+          <td>${cCount}</td>
+          <td><span class="id-cell">${b.ifsc || 'N/A'}</span></td>
+          <td><span class="badge ${getStatusBadgeClass(b.status)}">${b.status}</span></td>
+          <td>
+            <button class="btn btn-ghost btn-sm">View</button>
+          </td>
+        </tr>
+        `;
+      }).join('');
+      
+      document.getElementById('branchesTable').innerHTML = html || '<tr><td colspan="8" style="text-align:center">No branches found in this region.</td></tr>';
+    }
+
+    renderBranches();
+  </script>
+</body>
+</html>

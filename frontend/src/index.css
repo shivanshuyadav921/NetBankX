@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Complete Color Archive — Dark Enterprise Design Tokens */
+  --nbx-base: #15181B;
+  --nbx-bg: #1B1D1B;
+  --nbx-sidebar: #15181B;
+  --nbx-surface: #1F1F1E;
+  --nbx-surface-elevated: #262624;
+  --nbx-surface-control: #292A27;
+  --nbx-surface-hover: #30312D;
+
+  --nbx-text-primary: #F2EEE9;
+  --nbx-text-secondary: #D3CEC4;
+  --nbx-text-muted: #B8ADA1;
+  --nbx-text-disabled: #8F8A82;
+
+  --nbx-border: #343633;
+  --nbx-border-strong: #4A4B46;
+  --nbx-border-focus: #4F6F73;
+
+  --nbx-primary: #4F6F73;
+  --nbx-primary-deep: #295155;
+  --nbx-primary-secondary: #6E8888;
+  --nbx-primary-soft: #8FA3A6;
+
+  --nbx-success: #607758;
+  --nbx-warning: #B89F6A;
+  --nbx-high-risk: #B74E32;
+  --nbx-danger: #7B1E20;
+  --nbx-earth: #A88867;
+
+  /* Backward Compatibility Aliases */
+  --color-bg-base: #1B1D1B;
+  --color-bg-subtle: #262624;
+  --color-surface: #1F1F1E;
+  --color-surface-elevated: #262624;
+  --color-surface-hover: #30312D;
+
+  --color-text-primary: #F2EEE9;
+  --color-text-secondary: #D3CEC4;
+  --color-text-muted: #B8ADA1;
+
+  --color-border-subtle: #343633;
+  --color-border-default: #343633;
+  --color-border-strong: #4A4B46;
+
+  --color-primary: #4F6F73;
+  --color-primary-hover: #295155;
+  --color-primary-light: #262624;
+
+  --color-teal: #4F6F73;
+  --color-sage: #607758;
+  --color-forest: #607758;
+  --color-leather: #A88867;
+  --color-earth: #A88867;
+
+  --color-success: #607758;
+  --color-warning: #B89F6A;
+  --color-high-risk: #B74E32;
+  --color-critical: #7B1E20;
+
+  --color-sidebar-bg: #15181B;
+  --color-sidebar-surface: #262624;
+  --color-sidebar-border: #343633;
+  --color-sidebar-text: #F2EEE9;
+  --color-sidebar-muted: #B8ADA1;
+  --color-sidebar-active: #30312D;
+}
+
+body {
+  margin: 0;
+  background-color: #1B1D1B;
+  color: #F2EEE9;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark enterprise scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #15181B;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #343633;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4A4B46;
+}
+
+/* Dark container scrollbar */
+.dark-scroll::-webkit-scrollbar-track {
+  background: #15181B;
+}
+
+.dark-scroll::-webkit-scrollbar-thumb {
+  background: #343633;
+}
+
+.dark-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4A4B46;
+}
+
+/* Dark enterprise card system */
+.luxury-card {
+  background-color: #1F1F1E;
+  border: 1px solid #343633;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-card:hover {
+  background-color: #242422;
+  border-color: #4F6F73;
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark focus outline */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #4F6F73;
+}

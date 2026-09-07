@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetBankX - Enterprise Banking Infrastructure</title>
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    /* Landing page specific styles */
+    body {
+      background: radial-gradient(ellipse at center, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+      overflow-x: hidden;
+      margin: 0;
+    }
+    
+    .system-status {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      z-index: 10;
+      letter-spacing: 0.5px;
+    }
+    
+    .system-status span {
+      color: var(--success);
+      margin-right: 0.5rem;
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 4rem 2rem 2rem;
+      text-align: center;
+    }
+
+    /* Animated Grid Background */
+    .hero-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: 
+        linear-gradient(rgba(38, 52, 84, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(38, 52, 84, 0.15) 1px, transparent 1px);
+      background-size: 50px 50px;
+      z-index: 0;
+      transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+      animation: gridMove 20s linear infinite;
+    }
+
+    @keyframes gridMove {
+      0% { transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px); }
+      100% { transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px); }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      width: 100%;
+    }
+
+    .logo-container {
+      margin-bottom: 1.5rem;
+      animation: fadeIn 1s ease-out;
+    }
+
+    .logo-text {
+      font-size: 4.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .logo-text span {
+      color: var(--color-gold);
+    }
+
+    .tagline {
+      font-size: 1.35rem;
+      color: var(--text-secondary);
+      margin-bottom: 3.5rem;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+      animation: fadeIn 1s ease-out 0.3s both;
+    }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 3.5rem;
+      animation: slideIn 1s ease-out 0.6s both;
+    }
+
+    .role-card {
+      background: rgba(17, 29, 53, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-top: 4px solid;
+      border-radius: var(--radius-xl);
+      padding: 2.5rem 1.5rem;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .role-card::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      z-index: -1;
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+
+    .role-card:hover {
+      transform: translateY(-12px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      border-color: var(--border-light);
+    }
+
+    .role-card:hover::before {
+      transform: translateX(100%);
+    }
+
+    .role-hq { border-top-color: var(--color-hq-light); }
+    .role-hq:hover { box-shadow: 0 20px 40px rgba(57, 73, 171, 0.3); }
+    
+    .role-regional { border-top-color: var(--color-regional-light); }
+    .role-regional:hover { box-shadow: 0 20px 40px rgba(25, 118, 210, 0.3); }
+    
+    .role-branch { border-top-color: var(--color-branch-light); }
+    .role-branch:hover { box-shadow: 0 20px 40px rgba(2, 136, 209, 0.3); }
+    
+    .role-customer { border-top-color: var(--color-customer-light); }
+    .role-customer:hover { box-shadow: 0 20px 40px rgba(0, 137, 123, 0.3); }
+
+    .role-icon {
+      font-size: 3rem;
+      margin-bottom: 1.25rem;
+      transition: transform 0.3s ease;
+    }
+    
+    .role-card:hover .role-icon {
+      transform: scale(1.1);
+    }
+
+    .role-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .role-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.75rem;
+      flex-grow: 1;
+      line-height: 1.5;
+    }
+
+    .role-btn {
+      width: 100%;
+    }
+
+    .features-list {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      animation: fadeIn 1s ease-out 0.9s both;
+    }
+    
+    .feature-badge {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-light);
+      padding: 0.6rem 1.2rem;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+    
+    .feature-badge:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--color-gold-subtle);
+      color: var(--text-primary);
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      z-index: 1;
+      font-family: var(--font-mono);
+    }
+
+    @media (max-width: 1024px) {
+      .roles-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .roles-grid { grid-template-columns: 1fr; }
+      .logo-text { font-size: 3rem; }
+      .hero { padding-top: 5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="system-status">
+    NetBankX System Status: <span>🟢</span> All Systems Operational | 99.97% Uptime | 14 Branches Active
+  </div>
+
+  <div class="hero">
+    <div class="hero-bg"></div>
+    
+    <div class="hero-content">
+      <div class="logo-container">
+        <h1 class="logo-text">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
+          </svg>
+          NetBank<span>X</span>
+        </h1>
+      </div>
+      
+      <p class="tagline">Enterprise Banking Infrastructure &mdash; Powered by Real-Time Network Intelligence</p>
+      
+      <div class="roles-grid">
+        <div class="role-card role-hq">
+          <div class="role-icon">🏛</div>
+          <h3 class="role-title">Headquarters</h3>
+          <p class="role-desc">Global oversight, network topology management, and system-wide analytics.</p>
+          <a href="pages/login.html?role=hq" class="btn btn-secondary role-btn">Login as HQ</a>
+        </div>
+        
+        <div class="role-card role-regional">
+          <div class="role-icon">🏢</div>
+          <h3 class="role-title">Regional</h3>
+          <p class="role-desc">Regional branch management, performance tracking, and localized control.</p>
+          <a href="pages/login.html?role=regional" class="btn btn-secondary role-btn">Login as Regional</a>
+        </div>
+        
+        <div class="role-card role-branch">
+          <div class="role-icon">🏦</div>
+          <h3 class="role-title">Branch</h3>
+          <p class="role-desc">Day-to-day branch operations, customer management, and local transactions.</p>
+          <a href="pages/login.html?role=branch" class="btn btn-secondary role-btn">Login as Branch</a>
+        </div>
+        
+        <div class="role-card role-customer">
+          <div class="role-icon">👤</div>
+          <h3 class="role-title">Customer</h3>
+          <p class="role-desc">Personal banking, transaction history, and service requests.</p>
+          <a href="pages/login.html?role=customer" class="btn btn-secondary role-btn">Login as Customer</a>
+        </div>
+      </div>
+      
+      <div class="features-list">
+        <div class="feature-badge">🔒 End-to-End Encrypted</div>
+        <div class="feature-badge">🌐 Real-Time Packet Simulation</div>
+        <div class="feature-badge">📊 Live Network Analytics</div>
+        <div class="feature-badge">⚡ &lt;50ms Transaction Processing</div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      NetBankX v2.0.4 - System Online
+    </div>
+  </div>
+
+</body>
+</html>

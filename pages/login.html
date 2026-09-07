@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — NetBankX</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body>
+  <!-- Decorative background orbs -->
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="bg-grid"></div>
+  </div>
+  
+  <div class="auth-container">
+    <!-- Logo -->
+    <div class="auth-brand">
+      <div class="auth-logo-icon">🏛</div>
+      <div class="auth-logo-text">NetBank<span>X</span></div>
+      <div class="auth-logo-sub">Secure Banking Portal</div>
+    </div>
+    
+    <!-- Auth Card -->
+    <div class="auth-card" id="authCard">
+      <!-- Role Tabs -->
+      <div class="role-tabs">
+        <button class="role-tab active" data-role="hq">🏛 HQ</button>
+        <button class="role-tab" data-role="regional">🏢 Regional</button>
+        <button class="role-tab" data-role="branch">🏦 Branch</button>
+        <button class="role-tab" data-role="customer">👤 Customer</button>
+      </div>
+      
+      <!-- Form -->
+      <div class="auth-body">
+        <div class="auth-role-banner" id="roleBanner">
+          <span class="role-banner-icon" id="roleBannerIcon">🏛</span>
+          <span class="role-banner-text" id="roleBannerText">Headquarters Access</span>
+        </div>
+        
+        <div id="errorMsg" class="auth-error"></div>
+        
+        <form id="loginForm">
+          <div class="form-group">
+            <label class="form-label">User ID</label>
+            <input type="text" id="userId" class="form-control" placeholder="Enter your user ID" autocomplete="username" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-password-wrapper">
+              <input type="password" id="password" class="form-control" placeholder="Enter your password" autocomplete="current-password" required>
+              <button type="button" class="password-toggle" id="togglePwd">👁</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block btn-xl" style="margin-top:1.25rem;">Sign In →</button>
+        </form>
+        
+        <!-- Demo credentials accordion -->
+        <div class="demo-creds" id="demoCreds">
+          <div class="demo-creds-header" id="demoCredsToggle">
+            <span>🔑 Demo Credentials</span>
+            <span id="demoArrow">▼</span>
+          </div>
+          <div class="demo-creds-body" id="demoCredsBody">
+            <div id="demoCredsContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="auth-footer">NetBankX v2.0 · All connections encrypted · TLS 1.3</div>
+  </div>
+  
+  <script src="../js/mock-data.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const roleTabs = document.querySelectorAll('.role-tab');
+      const roleBanner = document.getElementById('roleBanner');
+      const roleBannerIcon = document.getElementById('roleBannerIcon');
+      const roleBannerText = document.getElementById('roleBannerText');
+      const loginForm = document.getElementById('loginForm');
+      const errorMsg = document.getElementById('errorMsg');
+      const demoCredsToggle = document.getElementById('demoCredsToggle');
+      const demoCredsBody = document.getElementById('demoCredsBody');
+      const demoArrow = document.getElementById('demoArrow');
+      const demoCredsContent = document.getElementById('demoCredsContent');
+      const togglePwd = document.getElementById('togglePwd');
+      const passwordInput = document.getElementById('password');
+
+      let currentRole = 'hq';
+
+      const roleConfig = {
+        hq: {
+          icon: '🏛',
+          text: 'Headquarters Access',
+          color: '#7986cb',
+          bg: 'rgba(121, 134, 203, 0.1)',
+          creds: [
+            { label: 'Admin', id: 'admin', pwd: 'hq@2024' }
+          ]
+        },
+        regional: {
+          icon: '🏢',
+          text: 'Regional Office Access',
+          color: '#64b5f6',
+          bg: 'rgba(100, 181, 246, 0.1)',
+          creds: [
+            { label: 'MH Region', id: 'raj.sharma', pwd: 'reg@2024' },
+            { label: 'DL Region', id: 'priya.patel', pwd: 'reg@2024' },
+            { label: 'KA Region', id: 'suresh.kumar', pwd: 'reg@2024' }
+          ]
+        },
+        branch: {
+          icon: '🏦',
+          text: 'Branch Access',
+          color: '#4fc3f7',
+          bg: 'rgba(79, 195, 247, 0.1)',
+          creds: [
+            { label: 'MUM-001', id: 'MH-MUM-001-MGR', pwd: 'branch@2024' },
+            { label: 'NDL-001', id: 'DL-NDL-001-MGR', pwd: 'branch@2024' },
+            { label: 'BLR-001', id: 'KA-BLR-001-MGR', pwd: 'branch@2024' }
+          ]
+        },
+        customer: {
+          icon: '👤',
+          text: 'Customer Portal',
+          color: '#4db6ac',
+          bg: 'rgba(77, 182, 172, 0.1)',
+          creds: [
+            { label: 'Aisha', id: 'ACC-100001', pwd: 'cust@2024' },
+            { label: 'Ravi', id: 'ACC-100002', pwd: 'cust@2024' },
+            { label: 'Sneha', id: 'ACC-100003', pwd: 'cust@2024' }
+          ]
+        }
+      };
+
+      function renderDemoCreds(role) {
+        const creds = roleConfig[role].creds;
+        let html = '<ul>';
+        creds.forEach(c => {
+          html += `<li><span>${c.label}</span> <div><span class="cred-id">${c.id}</span> / <span class="cred-pwd">${c.pwd}</span></div></li>`;
+        });
+        html += '</ul>';
+        demoCredsContent.innerHTML = html;
+      }
+
+      function selectRole(role) {
+        currentRole = role;
+        
+        roleTabs.forEach(t => t.classList.remove('active'));
+        document.querySelector(`.role-tab[data-role="${role}"]`).classList.add('active');
+
+        const config = roleConfig[role];
+        roleBannerIcon.textContent = config.icon;
+        roleBannerText.textContent = config.text;
+        roleBanner.style.color = config.color;
+        roleBanner.style.borderColor = config.color;
+        roleBanner.style.backgroundColor = config.bg;
+
+        document.getElementById('userId').value = '';
+        document.getElementById('password').value = '';
+        errorMsg.classList.remove('show');
+
+        renderDemoCreds(role);
+      }
+
+      roleTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          selectRole(e.target.dataset.role);
+        });
+      });
+
+      demoCredsToggle.addEventListener('click', () => {
+        demoCredsBody.classList.toggle('open');
+        demoArrow.textContent = demoCredsBody.classList.contains('open') ? '▲' : '▼';
+      });
+
+      togglePwd.addEventListener('click', () => {
+        if (passwordInput.type === 'password') {
+          passwordInput.type = 'text';
+          togglePwd.textContent = '🔒';
+        } else {
+          passwordInput.type = 'password';
+          togglePwd.textContent = '👁';
+        }
+      });
+
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const u = document.getElementById('userId').value.trim();
+        const p = document.getElementById('password').value.trim();
+        
+        if (!u || !p) {
+          errorMsg.textContent = 'Please enter both User ID and Password.';
+          errorMsg.classList.remove('show');
+          void errorMsg.offsetWidth; 
+          errorMsg.classList.add('show');
+          return;
+        }
+
+        const result = login(u, p, currentRole);
+        if (result && result.success) {
+          window.location.href = result.redirectUrl;
+        } else {
+          errorMsg.textContent = (result && (result.error || result.message)) || 'Invalid credentials. Please try again.';
+          errorMsg.classList.remove('show');
+          void errorMsg.offsetWidth; 
+          errorMsg.classList.add('show');
+        }
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get('role');
+      if (roleParam && roleConfig[roleParam]) {
+        selectRole(roleParam);
+      } else {
+        selectRole('hq');
+      }
+    });
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Dashboard | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['branch']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏦</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Branch Operations</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link active"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--branch" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Branch Manager</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title" id="pageTitle">Branch Dashboard</h1>
+          <p class="page-subtitle">Daily Branch Operations</p>
+        </div>
+      </div>
+      <div class="content-body">
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--blue">👥</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statCustomers">—</div>
+              <div class="stat-title">My Customers</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--green">📋</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statTxns">—</div>
+              <div class="stat-title">Transactions Today</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--teal">💰</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statAvgVol">—</div>
+              <div class="stat-title">Avg Transaction Amount</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-icon--gold">⚡</div>
+            <div class="stat-info">
+              <div class="stat-value" id="statStatus">—</div>
+              <div class="stat-title">Branch Status</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-70-30" style="margin-top: 1.5rem;">
+          <div class="left-col">
+            <h2 class="section-title">My Customers</h2>
+            <div class="grid-3" id="custCards"></div>
+            
+            <h2 class="section-title" style="margin-top: 2rem;">Recent Transactions</h2>
+            <div class="card">
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>TXN ID</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentTransactions"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-col">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Branch Info</h3>
+              </div>
+              <div class="card-body" id="branchInfoBox">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    const myBranchId = session.user.branchId;
+    const branchObj = (window.MOCK_DATA.branches || []).find(b => b.id === myBranchId);
+    
+    if(branchObj) {
+      document.getElementById('pageTitle').textContent = `${branchObj.name} Branch Dashboard`;
+      document.getElementById('statStatus').innerHTML = `<span class="badge ${getStatusBadgeClass(branchObj.status)}">${branchObj.status}</span>`;
+      
+      document.getElementById('branchInfoBox').innerHTML = `
+        <p style="margin-bottom: 0.5rem;"><strong>Code:</strong> <span class="id-cell">${branchObj.id}</span></p>
+        <p style="margin-bottom: 0.5rem;"><strong>IFSC:</strong> <span class="id-cell">${branchObj.ifsc}</span></p>
+        <p style="margin-bottom: 0.5rem;"><strong>Manager:</strong> ${branchObj.manager}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>City:</strong> ${branchObj.city}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>State:</strong> ${branchObj.state}</p>
+      `;
+    }
+
+    const myCustomers = (window.MOCK_DATA.users.customers || []).filter(c => c.branchId === myBranchId);
+    const myTxns = (window.MOCK_DATA.transactions || []).filter(t => t.branchId === myBranchId);
+    
+    document.getElementById('statCustomers').textContent = myCustomers.length;
+    document.getElementById('statTxns').textContent = myTxns.length;
+    
+    let vol = 0;
+    myTxns.forEach(t => vol += t.amount);
+    const avgVol = myTxns.length ? vol / myTxns.length : 0;
+    document.getElementById('statAvgVol').textContent = formatCurrency(avgVol);
+
+    const custCardsHtml = myCustomers.slice(0, 6).map(c => `
+      <div class="card" style="padding: 1rem;">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem;">${c.name}</h4>
+        <p style="margin: 0; font-size: 0.85rem; color: #666;">${c.accountType}</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;"><span class="badge ${c.kycStatus === 'verified' ? 'badge-success' : 'badge-warning'}">${c.kycStatus}</span></p>
+      </div>
+    `).join('');
+    document.getElementById('custCards').innerHTML = custCardsHtml || '<div class="empty-state">No customers found</div>';
+
+    const recentTxns = myTxns.slice(0, 8);
+    const txnsHtml = recentTxns.map(t => {
+      let typeBadge = '';
+      if (t.type.toLowerCase() === 'transfer') typeBadge = '<span class="badge badge-info">Transfer</span>';
+      else if (t.type.toLowerCase() === 'credit') typeBadge = '<span class="badge badge-success">Credit</span>';
+      else typeBadge = '<span class="badge badge-warning">Debit</span>';
+
+      let amountClass = (t.type.toLowerCase() === 'credit' || t.type.toLowerCase() === 'transfer') ? 'amount-credit' : 'amount-debit';
+
+      return `
+        <tr>
+          <td><span class="id-cell">${t.id}</span></td>
+          <td>${formatDate(t.date)}</td>
+          <td>${typeBadge}</td>
+          <td class="${amountClass}">${formatCurrency(t.amount)}</td>
+          <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('recentTransactions').innerHTML = txnsHtml || '<tr><td colspan="5" style="text-align:center">No transactions</td></tr>';
+  </script>
+</body>
+</html>

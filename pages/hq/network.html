@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Topology | NetBankX HQ</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <link rel="stylesheet" href="../../css/network.css">
+  <style>
+    /* ── Live Packet Inspector Popup ───────────────────────────── */
+    #lpiPopup {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 320px;
+      background: rgba(7, 13, 26, 0.97);
+      border: 1px solid #ffd700;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+      z-index: 9999;
+      font-family: 'Consolas', monospace;
+      font-size: 0.72rem;
+      color: #e8eaf6;
+      display: none;
+      overflow: hidden;
+      user-select: none;
+    }
+    #lpiPopup.visible { display: block; animation: lpiIn 0.2s ease; }
+    @keyframes lpiIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+    #lpiHeader {
+      background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(124,77,255,0.08));
+      padding: 10px 14px;
+      border-bottom: 1px solid #1e2d4f;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: move;
+    }
+    #lpiHeader .lpi-title { color: #ffd700; font-weight: 800; font-size: 0.8rem; }
+    #lpiHeader .lpi-subtitle { color: #5c6bc0; font-size: 0.65rem; margin-top: 1px; }
+    #lpiClose {
+      background: none; border: none; color: #5c6bc0; cursor: pointer;
+      font-size: 1rem; padding: 0 4px; line-height: 1;
+    }
+    #lpiClose:hover { color: #ff5252; }
+
+    #lpiBody { padding: 10px 14px; }
+    .lpi-section { margin-bottom: 10px; }
+    .lpi-section-title {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 5px; padding-bottom: 3px;
+      border-bottom: 1px solid #1e2d4f;
+    }
+    .lpi-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 3px;
+    }
+    .lpi-key { color: #5c6bc0; flex-shrink: 0; width: 95px; font-size: 0.68rem; }
+    .lpi-val { color: #a5d6a7; font-weight: 700; text-align: right; word-break: break-all; flex: 1; font-size: 0.68rem; }
+    .lpi-val.ip   { color: #40c4ff; }
+    .lpi-val.mac  { color: #ffab40; font-size: 0.65rem; }
+    .lpi-val.flag { color: #ef9a9a; }
+    .lpi-val.sec  { color: #00e676; }
+    .lpi-val.warn { color: #ffab40; }
+    .lpi-val.hop  { color: #ffd700; font-size: 0.85rem; }
+
+    #lpiProgress {
+      height: 3px;
+      background: linear-gradient(90deg, #ffd700, #7c4dff);
+      transition: width 0.1s linear;
+      width: 0%;
+    }
+
+    /* ── Direct Transmission Panel ─────────────────────────────── */
+    #hqSummaryBox {
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .dt-select {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: var(--font-main);
+      margin-bottom: 8px;
+    }
+    .dt-btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['hq']);</script>
+  
+  <!-- ── LIVE PACKET INSPECTOR POPUP ──────────────────────────── -->
+  <div id="lpiPopup">
+    <div id="lpiProgress"></div>
+    <div id="lpiHeader">
+      <div>
+        <div class="lpi-title">📡 Live Packet Inspector</div>
+        <div class="lpi-subtitle">Real-time frame analysis — every hop</div>
+      </div>
+      <button id="lpiClose" title="Close">✕</button>
+    </div>
+    <div id="lpiBody">
+      <!-- Hop info -->
+      <div class="lpi-section">
+        <div class="lpi-section-title" style="color:#ffd700;">🔀 Current Hop</div>
+        <div class="lpi-row"><span class="lpi-key">Hop #</span><span class="lpi-val hop" id="lpiHop">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">From Node</span><span class="lpi-val" id="lpiFrom">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">To Node</span><span class="lpi-val" id="lpiTo">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Packet Type</span><span class="lpi-val flag" id="lpiType">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Direction</span><span class="lpi-val" id="lpiDir">—</span></div>
+      </div>
+
+      <!-- L3 Network -->
+      <div class="lpi-section">
+        <div class="lpi-section-title" style="color:#43a047;">🌐 L3 — Network (IPv4)</div>
+        <div class="lpi-row"><span class="lpi-key">Source IP</span><span class="lpi-val ip" id="lpiSrcIP">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Dest IP</span><span class="lpi-val ip" id="lpiDstIP">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">TTL</span><span class="lpi-val" id="lpiTTL">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Protocol</span><span class="lpi-val">6 (TCP)</span></div>
+        <div class="lpi-row"><span class="lpi-key">NAT Applied</span><span class="lpi-val" id="lpiNAT">No</span></div>
+      </div>
+
+      <!-- L2 Data Link -->
+      <div class="lpi-section">
+        <div class="lpi-section-title" style="color:#fb8c00;">🔗 L2 — Data Link (Ethernet)</div>
+        <div class="lpi-row"><span class="lpi-key">Src MAC</span><span class="lpi-val mac" id="lpiSrcMAC">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Dst MAC</span><span class="lpi-val mac" id="lpiDstMAC">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">MAC Rewrite</span><span class="lpi-val" id="lpiMACRewrite">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Frame Size</span><span class="lpi-val" id="lpiFrameSize">—</span></div>
+      </div>
+
+      <!-- L4 Transport -->
+      <div class="lpi-section">
+        <div class="lpi-section-title" style="color:#00acc1;">📦 L4 — Transport (TCP)</div>
+        <div class="lpi-row"><span class="lpi-key">Src Port</span><span class="lpi-val" id="lpiSrcPort">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Dst Port</span><span class="lpi-val">443 (HTTPS)</span></div>
+        <div class="lpi-row"><span class="lpi-key">TCP Flags</span><span class="lpi-val flag" id="lpiFlags">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Seq #</span><span class="lpi-val" id="lpiSeq">—</span></div>
+      </div>
+
+      <!-- Security -->
+      <div class="lpi-section">
+        <div class="lpi-section-title" style="color:#7c4dff;">🔐 L6 — Security (TLS)</div>
+        <div class="lpi-row"><span class="lpi-key">Encryption</span><span class="lpi-val sec" id="lpiEnc">—</span></div>
+        <div class="lpi-row"><span class="lpi-key">Payload</span><span class="lpi-val" id="lpiPayload" style="color:#9fa8da;font-size:0.63rem;word-break:break-all;">—</span></div>
+      </div>
+
+      <div style="text-align:center;color:#5c6bc0;font-size:0.63rem;padding-top:4px;border-top:1px solid #1e2d4f;">
+        Drag to move • Updates every frame
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">🏦</div>
+            <div class="logo-name">NetBankX</div>
+            <div class="logo-role">HQ ADMIN</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+            <a href="network.html" class="nav-link active"><span class="nav-icon">🌐</span><span class="nav-label">Network Sim</span></a>
+            <a href="policies.html" class="nav-link"><span class="nav-icon">📜</span><span class="nav-label">Policies</span></a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="user-avatar user-avatar--hq" id="sidebarAvatar">HQ</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarName">Admin</div>
+                    <div class="user-role-text">HQ Server</div>
+                </div>
+            </div>
+            <button class="btn btn-ghost btn-logout" onclick="logout()">Logout</button>
+        </div>
+    </aside>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">🌐 Network Topology</h1>
+          <p class="page-subtitle">Real-time packet transmission across the NetBankX banking network</p>
+        </div>
+        <div class="page-actions">
+          <span style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;">
+            <span class="pulse-dot"></span> Network Active
+          </span>
+          <span class="badge badge-success">14 Nodes Online</span>
+          <span class="badge badge-gold" id="activePackets">0 Packets</span>
+          <button class="btn btn-sm" id="inspectorToggle"
+            style="background:rgba(255,215,0,0.1);border:1px solid #ffd700;color:#ffd700;font-size:0.75rem;">
+            📡 Inspector: OFF
+          </button>
+        </div>
+      </div>
+      
+      <div class="content-body">
+        <div class="stats-grid" style="grid-template-columns: repeat(4,1fr);" id="netStatsDisplay"></div>
+        
+        <div class="network-layout">
+          <div>
+            <div class="network-canvas-wrapper">
+              <canvas id="networkCanvas"></canvas>
+            </div>
+          </div>
+          
+
+            <!-- ── BROADCAST CENTER ── -->
+            <div class="control-section broadcast-center">
+              <div class="control-section-title">📡 Broadcast Center</div>
+              <button class="broadcast-btn" onclick="NetworkSim.doBroadcast('policy')">
+                ↓ HQ → All Branches &nbsp;<span class="badge badge-gold" style="font-size:0.65rem">POLICY</span>
+              </button>
+              <button class="broadcast-btn" onclick="NetworkSim.doCustomerTransfer()">
+                ↕ Customer Transfer (Full Trip) &nbsp;<span class="badge badge-success" style="font-size:0.65rem">TXN</span>
+              </button>
+              <button class="broadcast-btn broadcast-btn--up" onclick="NetworkSim.doBranchReport()">
+                ↑ Branch Report → HQ &nbsp;<span class="badge badge-info" style="font-size:0.65rem">RPT</span>
+              </button>
+              <button class="broadcast-btn broadcast-btn--alert" onclick="NetworkSim.doBroadcast('alert')">
+                ⚠ Emergency Alert (All Nodes) &nbsp;<span class="badge badge-danger" style="font-size:0.65rem">ALERT</span>
+              </button>
+              <button class="broadcast-btn broadcast-btn--info" onclick="NetworkSim.doBroadcast('dataRequest')">
+                → Data Request to All &nbsp;<span class="badge badge-muted" style="font-size:0.65rem">REQ</span>
+              </button>
+            </div>
+
+            <!-- ── DIRECT TRANSMISSION ── -->
+            <div class="control-section" style="border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:12px;">
+              <div class="control-section-title" style="color:#ffd700;margin-bottom:10px;">
+                🎯 Direct Transmission from HQ
+              </div>
+              <div style="font-size:0.7rem;color:#5c6bc0;margin-bottom:10px;">
+                Send a targeted packet from HQ directly to any branch or hub. Full path is animated hop-by-hop with a summary below.
+              </div>
+
+              <!-- Regional Hubs -->
+              <div style="font-size:0.68rem;font-weight:700;color:#9fa8da;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Regional Hubs</div>
+              <select id="dtHubSelect" class="dt-select">
+                <option value="">— Select a Regional Hub —</option>
+                <option value="MH-HUB">🌐 Maharashtra Regional Hub (MH-HUB)</option>
+                <option value="DL-HUB">🌐 Delhi Regional Hub (DL-HUB)</option>
+                <option value="KA-HUB">🌐 Karnataka Regional Hub (KA-HUB)</option>
+              </select>
+              <div class="dt-btn-row" style="margin-bottom:12px;">
+                <button class="btn btn-sm" style="background:rgba(255,215,0,0.1);border:1px solid #ffd700;color:#ffd700;"
+                  onclick="hqSendToTarget(document.getElementById('dtHubSelect').value, 'DATA')">📤 Send DATA</button>
+                <button class="btn btn-sm" style="background:rgba(64,196,255,0.1);border:1px solid #40c4ff;color:#40c4ff;"
+                  onclick="hqSendToTarget(document.getElementById('dtHubSelect').value, 'REQ')">📨 Send REQ</button>
+              </div>
+
+              <!-- Individual Branches -->
+              <div style="font-size:0.68rem;font-weight:700;color:#9fa8da;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Individual Branches</div>
+              <select id="dtBranchSelect" class="dt-select">
+                <option value="">— Select a Branch —</option>
+                <optgroup label="🏢 Maharashtra">
+                  <option value="MH-MUM-001-RT">Mumbai Main Branch (MH-MUM-001)</option>
+                  <option value="MH-MUM-002-RT">Mumbai West Branch (MH-MUM-002)</option>
+                  <option value="MH-PUN-001-RT">Pune Central Branch (MH-PUN-001)</option>
+                  <option value="MH-NGP-001-RT">Nagpur Branch (MH-NGP-001)</option>
+                </optgroup>
+                <optgroup label="🏢 Delhi">
+                  <option value="DL-NDL-001-RT">Connaught Place Branch (DL-NDL-001)</option>
+                  <option value="DL-NDL-002-RT">South Delhi Branch (DL-NDL-002)</option>
+                  <option value="DL-GGN-001-RT">Gurgaon Branch (DL-GGN-001)</option>
+                </optgroup>
+                <optgroup label="🏢 Karnataka">
+                  <option value="KA-BLR-001-RT">Koramangala Branch (KA-BLR-001)</option>
+                  <option value="KA-BLR-002-RT">Whitefield Branch (KA-BLR-002)</option>
+                  <option value="KA-MYS-001-RT">Mysore Branch (KA-MYS-001)</option>
+                </optgroup>
+              </select>
+              <div class="dt-btn-row">
+                <button class="btn btn-sm" style="background:rgba(0,230,118,0.1);border:1px solid #00e676;color:#00e676;"
+                  onclick="hqSendToTarget(document.getElementById('dtBranchSelect').value, 'DATA')">📤 Send DATA</button>
+                <button class="btn btn-sm" style="background:rgba(255,171,64,0.1);border:1px solid #ffab40;color:#ffab40;"
+                  onclick="hqSendToTarget(document.getElementById('dtBranchSelect').value, 'POL')">📜 Send POLICY</button>
+              </div>
+            </div>
+
+            <!-- ── SIMULATION CONTROLS ── -->
+            <div class="control-section">
+              <div class="control-section-title">⚙ Simulation Controls</div>
+              <div class="slider-row">
+                <div class="slider-label"><span>Network Latency</span><span class="slider-value" id="latencyVal">20ms</span></div>
+                <input type="range" min="0" max="500" value="20" id="latencySlider">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label"><span>Packet Loss</span><span class="slider-value" id="lossVal">5%</span></div>
+                <input type="range" min="0" max="30" value="5" id="lossSlider">
+              </div>
+              <div class="slider-row">
+                <div class="slider-label"><span>Simulation Speed</span><span class="slider-value" id="speedVal">1×</span></div>
+                <input type="range" min="0.5" max="3" step="0.5" value="1" id="speedSlider">
+              </div>
+              <div class="control-btn-group">
+                <button class="btn btn-danger btn-sm" id="breakLinkBtn">💥 Break Random Link</button>
+                <button class="btn btn-ghost btn-sm" onclick="NetworkSim.resetNetwork()">↺ Reset Network</button>
+                <button class="btn btn-info btn-sm" onclick="NetworkSim.fireRandom && NetworkSim.fireRandom()">⚡ Random Packet</button>
+              </div>
+
+              <!-- Security Toggles -->
+              <div class="slider-row" style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem;">
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text-primary);">
+                  <input type="checkbox" id="tlsToggle" checked style="width:16px;height:16px;accent-color:var(--color-gold);">
+                  🔒 Enable TLS 1.3 Encryption
+                </label>
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem;">Encrypts packet payloads in transit</div>
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text-primary);margin-top:0.75rem;">
+                  <input type="checkbox" id="fwToggle" style="width:16px;height:16px;accent-color:var(--success);">
+                  🛡️ Deploy Regional Firewalls (ACLs)
+                </label>
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem;">Blocks unauthorized malicious packets at Hubs</div>
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text-primary);margin-top:0.75rem;">
+                  <input type="checkbox" id="rlToggle" style="width:16px;height:16px;accent-color:var(--info);">
+                  🚦 Enable Rate Limiting (QoS)
+                </label>
+                <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem;">Mitigates DDoS traffic spikes</div>
+              </div>
+
+              <!-- Security simulations -->
+              <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:6px;">
+                <button class="btn btn-sm btn-danger" onclick="NetworkSim.doRogueTraffic()">🕷️ Simulate Rogue Traffic (SQL Inject)</button>
+                <button class="btn btn-sm btn-warning" onclick="NetworkSim.doDDoS()">💣 Simulate DDoS Attack</button>
+                <button class="btn btn-sm btn-info" onclick="NetworkSim.doTraceroute()">🔍 ICMP Traceroute (HQ → Hubs)</button>
+              </div>
+            </div>
+
+            <!-- ── PACKET LEGEND ── -->
+            <div class="control-section">
+              <div class="control-section-title">Packet Legend</div>
+              <div style="font-size:0.78rem;display:flex;flex-direction:column;gap:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#ffd700;display:inline-block;"></span> HQ → Branch (Policy/Data)</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#00e676;display:inline-block;"></span> Branch → HQ (Transfer/Report)</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#ff5252;display:inline-block;"></span> Emergency Alert / Rogue</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#40c4ff;display:inline-block;"></span> Data Request / ICMP</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#ff9800;display:inline-block;"></span> Retransmission (ARQ)</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:10px;height:10px;border-radius:50%;background:#ba68c8;display:inline-block;"></span> Direct Targeted TX</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- ── HQ SUMMARY BOX (below layout) ── -->
+        <div id="hqSummaryBox"></div>
+        
+        <div class="network-log-section">
+          <div class="card-header">
+            <h3>📋 Network Transmission Log</h3>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('networkLog').innerHTML=''">Clear</button>
+          </div>
+          <div class="network-log" id="networkLog">
+            <div class="log-entry log-entry--info">
+              <span class="log-time">--:--:--</span>
+              <span class="log-label">● INIT</span>
+              <span class="log-msg">NetBankX Network initialized. 14 nodes online.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script src="../../js/network-sim.js"></script>
+  <script>
+    if (session && session.user) {
+      document.getElementById('sidebarName').textContent = session.user.name || 'Admin';
+    }
+
+    NetworkSim.init('networkCanvas', 'full', {});
+
+    /* ── SLIDERS ─────────────────────────────────────────────── */
+    document.getElementById('latencySlider').addEventListener('input', function () {
+      document.getElementById('latencyVal').textContent = this.value + 'ms';
+      NetworkSim.setLatency(parseInt(this.value));
+    });
+    document.getElementById('lossSlider').addEventListener('input', function () {
+      document.getElementById('lossVal').textContent = this.value + '%';
+      NetworkSim.setPacketLoss(parseInt(this.value));
+    });
+    document.getElementById('speedSlider').addEventListener('input', function () {
+      document.getElementById('speedVal').textContent = this.value + '×';
+      NetworkSim.setSpeed(parseFloat(this.value));
+    });
+    document.getElementById('breakLinkBtn').addEventListener('click', () => NetworkSim.breakLink());
+
+    /* ── TLS / FW / RL TOGGLES ──────────────────────────────── */
+    document.getElementById('tlsToggle').addEventListener('change', e => NetworkSim.setTLS(e.target.checked));
+    document.getElementById('fwToggle').addEventListener('change', e => NetworkSim.setFirewall(e.target.checked));
+    document.getElementById('rlToggle').addEventListener('change', e => NetworkSim.setRateLimit(e.target.checked));
+
+    /* ── LIVE PACKET INSPECTOR ──────────────────────────────── */
+    const lpi = document.getElementById('lpiPopup');
+    const lpiClose = document.getElementById('lpiClose');
+    const inspectorToggle = document.getElementById('inspectorToggle');
+    let inspectorEnabled = false;
+    let hopCounter = 0;
+
+    inspectorToggle.addEventListener('click', () => {
+      inspectorEnabled = !inspectorEnabled;
+      inspectorToggle.textContent = `📡 Inspector: ${inspectorEnabled ? 'ON' : 'OFF'}`;
+      inspectorToggle.style.background = inspectorEnabled ? 'rgba(255,215,0,0.2)' : 'rgba(255,215,0,0.1)';
+      if (!inspectorEnabled) lpi.classList.remove('visible');
+    });
+
+    lpiClose.addEventListener('click', () => {
+      lpi.classList.remove('visible');
+      inspectorEnabled = false;
+      inspectorToggle.textContent = '📡 Inspector: OFF';
+      inspectorToggle.style.background = 'rgba(255,215,0,0.1)';
+    });
+
+    /* Draggable popup */
+    let dragging = false, dragX = 0, dragY = 0;
+    document.getElementById('lpiHeader').addEventListener('mousedown', (e) => {
+      dragging = true;
+      dragX = e.clientX - lpi.getBoundingClientRect().left;
+      dragY = e.clientY - lpi.getBoundingClientRect().top;
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      lpi.style.left = (e.clientX - dragX) + 'px';
+      lpi.style.top  = (e.clientY - dragY) + 'px';
+      lpi.style.right = 'auto';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+
+    /* MAC generator (mirrors network-sim.js) */
+    function getMac(id) {
+      if (!id) return '00:00:00:00:00:00';
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
+      const hex = Math.abs(h).toString(16).padStart(6, '0');
+      return `00:1A:2B:${hex.substring(0,2)}:${hex.substring(2,4)}:${hex.substring(4,6)}`.toUpperCase();
+    }
+
+    /* Node IP map */
+    const nodeIPs = {
+      'HQ': '12.0.0.1',
+      'MH-HUB': '203.0.113.1', 'DL-HUB': '203.0.113.2', 'KA-HUB': '203.0.113.3',
+      'MH-MUM-001-RT':'10.1.1.1','MH-MUM-002-RT':'10.1.1.2',
+      'MH-PUN-001-RT':'10.1.2.1','MH-NGP-001-RT':'10.1.3.1',
+      'DL-NDL-001-RT':'10.2.1.1','DL-NDL-002-RT':'10.2.1.2',
+      'DL-GGN-001-RT':'10.2.2.1',
+      'KA-BLR-001-RT':'10.3.1.1','KA-BLR-002-RT':'10.3.1.2',
+      'KA-MYS-001-RT':'10.3.2.1',
+    };
+    const nodeLabels = {
+      'HQ':'HQ Server','MH-HUB':'MH Regional Hub','DL-HUB':'DL Regional Hub','KA-HUB':'KA Regional Hub',
+      'MH-MUM-001-RT':'Mumbai Main','MH-MUM-002-RT':'Mumbai West',
+      'MH-PUN-001-RT':'Pune Central','MH-NGP-001-RT':'Nagpur',
+      'DL-NDL-001-RT':'Connaught Place','DL-NDL-002-RT':'South Delhi',
+      'DL-GGN-001-RT':'Gurgaon',
+      'KA-BLR-001-RT':'Koramangala','KA-BLR-002-RT':'Whitefield',
+      'KA-MYS-001-RT':'Mysore'
+    };
+
+    /* Call this when a simulated packet hops to a node */
+    window._notifyInspector = function(srcId, dstId, packetLabel, hopNum, tlsOn) {
+      if (!inspectorEnabled) return;
+      lpi.classList.add('visible');
+
+      const srcIP = nodeIPs[srcId] || '?.?.?.?';
+      const dstIP = nodeIPs[dstId] || '?.?.?.?';
+      const srcLabel = nodeLabels[srcId] || srcId;
+      const dstLabel = nodeLabels[dstId] || dstId;
+
+      const srcMAC = getMac(srcId);
+      const dstMAC = getMac(dstId);
+      const ttl = 64 - (hopNum || 0);
+
+      const isNAT = (srcId.endsWith('-RT') && dstId.includes('-HUB')) ||
+                    (srcId.includes('-HUB') && dstId === 'HQ');
+      const isRouter = srcId !== 'HQ' && dstId !== 'HQ';
+      const isDownstream = srcId === 'HQ' || srcId.includes('-HUB');
+      const dir = isDownstream ? '⬇ HQ → Branch (Downstream)' : '⬆ Branch → HQ (Upstream)';
+
+      const flags = packetLabel === 'SYN' ? 'SYN' :
+                    packetLabel === 'SYN-ACK' ? 'SYN, ACK' :
+                    packetLabel === 'ACK' ? 'ACK' :
+                    ['TXN','DATA','POL'].includes(packetLabel) ? 'PSH, ACK' :
+                    packetLabel === 'CNF' ? 'FIN, ACK' : 'ACK';
+
+      const payload = tlsOn
+        ? 'AES-256-GCM:' + btoa(packetLabel + srcId).substring(0, 24) + '...'
+        : `{"type":"${packetLabel}","from":"${srcId}","seq":${1000 + (hopNum||0)*512}}`;
+
+      document.getElementById('lpiHop').textContent   = (hopNum || 0) + 1;
+      document.getElementById('lpiFrom').textContent  = srcLabel;
+      document.getElementById('lpiTo').textContent    = dstLabel;
+      document.getElementById('lpiType').textContent  = packetLabel;
+      document.getElementById('lpiDir').textContent   = dir;
+      document.getElementById('lpiSrcIP').textContent = srcIP;
+      document.getElementById('lpiDstIP').textContent = dstIP;
+      document.getElementById('lpiTTL').textContent   = ttl + ' (decremented at each router)';
+      document.getElementById('lpiNAT').textContent   = isNAT ? '✅ Private → Public IP' : 'No';
+      document.getElementById('lpiSrcMAC').textContent = srcMAC;
+      document.getElementById('lpiDstMAC').textContent = dstMAC;
+      document.getElementById('lpiMACRewrite').textContent = hopNum > 0 ? '✅ Rewritten at this router (L2 is hop-local)' : '🔵 Original frame';
+      document.getElementById('lpiFrameSize').textContent = (1500 - (hopNum||0) * 12) + ' bytes';
+      document.getElementById('lpiSrcPort').textContent = String(32768 + (hopNum||0) * 100);
+      document.getElementById('lpiFlags').textContent  = flags;
+      document.getElementById('lpiSeq').textContent    = String(1000 + (hopNum||0) * 512);
+      document.getElementById('lpiEnc').textContent    = tlsOn ? '🔒 TLS 1.3 (AES-256-GCM)' : '⚠️ NONE — Plaintext';
+      document.getElementById('lpiEnc').className      = 'lpi-val ' + (tlsOn ? 'sec' : 'warn');
+      document.getElementById('lpiPayload').textContent = payload;
+
+      /* Progress bar shows hop progress */
+      document.getElementById('lpiProgress').style.width = Math.min(100, ((hopNum||0) + 1) / 4 * 100) + '%';
+    };
+
+    /* ── HQ DIRECT TRANSMISSION ─────────────────────────────── */
+    function hqSendToTarget(targetId, pktType) {
+      if (!targetId) {
+        alert('Please select a destination first.');
+        return;
+      }
+
+      const tlsOn = document.getElementById('tlsToggle').checked;
+      const color = pktType === 'DATA' ? '#ba68c8' :
+                    pktType === 'POL'  ? '#ffd700' :
+                    pktType === 'REQ'  ? '#40c4ff' : '#ba68c8';
+
+      const isHub = targetId.includes('-HUB');
+      const hubId = isHub ? targetId :
+                    (targetId.startsWith('MH') ? 'MH-HUB' :
+                     targetId.startsWith('DL') ? 'DL-HUB' : 'KA-HUB');
+
+      let hopNum = 0;
+      const label = nodeLabels[targetId] || targetId;
+      const hubLabel = nodeLabels[hubId] || hubId;
+
+      /* Show inspector automatically */
+      if (inspectorEnabled) lpi.classList.add('visible');
+
+      /* Hide old summary */
+      const summaryBox = document.getElementById('hqSummaryBox');
+      summaryBox.style.display = 'none';
+
+      /* HQ → Hub */
+      window._notifyInspector('HQ', hubId, pktType, hopNum, tlsOn);
+      NetworkSim.simulatePacket('HQ', hubId, {
+        color, label: pktType, speed: 0.012, type: 'data',
+        origSrc: 'HQ', finalDest: targetId, ttl: 64,
+        onArrive: () => {
+          hopNum++;
+          if (!isHub) {
+            /* Hub → Branch */
+            window._notifyInspector(hubId, targetId, pktType, hopNum, tlsOn);
+            NetworkSim.simulatePacket(hubId, targetId, {
+              color, label: pktType, speed: 0.012, type: 'data',
+              origSrc: 'HQ', finalDest: targetId, ttl: 63,
+              onArrive: () => {
+                hopNum++;
+                showHQSummary(targetId, hubId, pktType, tlsOn, hopNum);
+              }
+            });
+          } else {
+            showHQSummary(targetId, hubId, pktType, tlsOn, hopNum);
+          }
+        }
+      });
+    }
+
+    function showHQSummary(targetId, hubId, pktType, tlsOn, hops) {
+      const label    = nodeLabels[targetId] || targetId;
+      const hubLabel = nodeLabels[hubId]    || hubId;
+      const isHub    = targetId.includes('-HUB');
+      const hqIP     = nodeIPs['HQ'];
+      const hubIP    = nodeIPs[hubId] || '203.0.113.x';
+      const dstIP    = nodeIPs[targetId] || '10.x.x.x';
+      const tlsStr   = tlsOn ? '🔒 TLS 1.3 — AES-256-GCM (Secure)' : '⚠️ Plaintext — Vulnerable to MITM';
+      const tlsColor = tlsOn ? '#00e676' : '#ff5252';
+      const pth = isHub
+        ? `🏛 <strong>HQ Server</strong> <span style="color:#5c6bc0">(${hqIP})</span><br>&nbsp;&nbsp;↓ Hop 1 · Fiber Backbone → Hub<br>🌐 <strong>${hubLabel}</strong> <span style="color:#5c6bc0">(${hubIP})</span>`
+        : `🏛 <strong>HQ Server</strong> <span style="color:#5c6bc0">(${hqIP})</span><br>&nbsp;&nbsp;↓ Hop 1 · Fiber Backbone → Hub<br>🌐 <strong>${hubLabel}</strong> <span style="color:#5c6bc0">(${hubIP})</span><br>&nbsp;&nbsp;↓ Hop 2 · Hub → Branch LAN<br>🏦 <strong>${label}</strong> <span style="color:#5c6bc0">(${dstIP})</span>`;
+
+      const box = document.getElementById('hqSummaryBox');
+      box.style.display = 'block';
+      box.style.animation = 'slideIn 0.4s ease';
+      box.innerHTML = `
+        <div style="background:#111d35;border:1px solid rgba(255,215,0,0.3);border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5);">
+          <div style="height:3px;background:linear-gradient(90deg,#ffd700,#7c4dff,#00e676);"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,215,0,0.04);border-bottom:1px solid #1e2d4f;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="font-size:1.1rem;">✅</div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:800;color:#ffd700;">Direct Transmission Complete — ${pktType}</div>
+                <div style="font-size:0.7rem;color:#5c6bc0;">HQ → ${label} · ${hops} hops · TCP Reliable Delivery</div>
+              </div>
+            </div>
+            <button onclick="document.getElementById('hqSummaryBox').style.display='none'"
+              style="background:none;border:1px solid #1e2d4f;color:#5c6bc0;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:0.75rem;">✕</button>
+          </div>
+          <div style="padding:12px 16px;border-bottom:1px solid #0d1529;">
+            <div style="font-size:0.6rem;color:#5c6bc0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📍 Packet Route</div>
+            <div style="background:#0a1428;border-radius:8px;padding:10px 14px;font-family:'Consolas',monospace;font-size:0.8rem;line-height:2.1;">${pth}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#0d1529;">
+            <div style="padding:10px 16px;background:#111d35;">
+              <div style="font-size:0.6rem;color:#5c6bc0;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Transport</div>
+              <div style="font-size:0.82rem;color:#40c4ff;font-weight:700;">TCP / PSH+ACK</div>
+            </div>
+            <div style="padding:10px 16px;background:#111d35;border-left:1px solid #0d1529;">
+              <div style="font-size:0.6rem;color:#5c6bc0;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Security</div>
+              <div style="font-size:0.82rem;font-weight:700;color:${tlsColor};">${tlsStr}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+  </script>
+</body>
+</html>

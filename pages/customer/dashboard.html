@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Account - NetBankX Customer Portal</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Customer Portal</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link active"><span class="nav-icon">🏠</span><span class="nav-label">My Account</span></a>
+        <a href="transfer.html" class="nav-link"><span class="nav-icon">💸</span><span class="nav-label">Transfer Funds</span></a>
+        <a href="history.html" class="nav-link"><span class="nav-icon">📜</span><span class="nav-label">History</span></a>
+        <a href="requests.html" class="nav-link"><span class="nav-icon">📬</span><span class="nav-label">Requests</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--customer" id="userAvatar">..</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Account Holder</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">My Account</h1>
+          <p class="page-subtitle">Your personal banking dashboard</p>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <div class="card" style="border-top: 3px solid var(--color-customer); margin-bottom: 1.5rem;">
+          <div class="card-body">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+              <!-- Left: Account info -->
+              <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">Account Number</div>
+                <div style="font-family:var(--font-mono); font-size:1.1rem; font-weight:600; margin-bottom:0.75rem;" id="accNumber">ACC-XXXXXX</div>
+                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                  <span class="badge badge-gold" id="accType">Savings Account</span>
+                  <span class="badge badge-success">✓ KYC Verified</span>
+                  <span style="display:flex;align-items:center;gap:0.3rem;font-size:0.78rem;color:var(--text-muted);">
+                    <span class="pulse-dot"></span> Connected to <span id="branchName" style="color:var(--text-secondary);">Branch</span>
+                  </span>
+                </div>
+              </div>
+              <!-- Right: Balance -->
+              <div style="text-align:right;">
+                <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">Available Balance</div>
+                <div style="font-size:2.5rem; font-weight:800; font-family:var(--font-mono); color:var(--color-gold); line-height:1;" id="balanceDisplay">₹ ••••••</div>
+                <button class="btn btn-ghost btn-sm" id="toggleBalance" style="margin-top:0.5rem;">👁 Show Balance</button>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">IFSC: <span id="ifscCode" style="font-family:var(--font-mono);">—</span></div>
+              </div>
+            </div>
+            <!-- Quick Actions -->
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem; flex-wrap:wrap;">
+              <a href="transfer.html" class="btn btn-primary">💸 Transfer Funds</a>
+              <a href="history.html" class="btn btn-secondary">📜 View History</a>
+              <a href="requests.html" class="btn btn-ghost">📬 Raise Request</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col-layout" style="grid-template-columns: 7fr 3fr;">
+          <!-- Left: Recent Transactions -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Recent Transactions</h3>
+            </div>
+            <div class="card-body table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="recentTxns">
+                  <tr><td colspan="4">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Right: Account Details -->
+          <div>
+            <div class="card" style="margin-bottom: 1.5rem;">
+              <div class="card-header">
+                <h3>Account Details</h3>
+              </div>
+              <div class="card-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem;">
+                  <span style="color:var(--text-muted);">Member Since</span>
+                  <span id="memberSince">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem;">
+                  <span style="color:var(--text-muted);">Account Age</span>
+                  <span id="accountAge">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.75rem;">
+                  <span style="color:var(--text-muted);">Region</span>
+                  <span id="regionName">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Phone</span>
+                  <span>+91 XXXXX XXXXX</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Account Status</h3>
+              </div>
+              <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">✅</div>
+                <h4 style="margin-bottom: 0.5rem;">Active & Secure</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">Your account is in good standing and protected by industry-leading security.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const session = requireAuth(['customer']); if (!session) return;
+      const u = session.user;
+      const myBranch = MOCK_DATA.branches.find(b => b.id === u.branchId);
+      const myRegion = MOCK_DATA.regions.find(r => r.id === u.regionId);
+      const myTxns = MOCK_DATA.transactions.filter(t => t.fromAccount === u.id || t.toAccount === u.id);
+      
+      // Populate sidebar
+      document.getElementById('userAvatar').textContent = u.avatar || u.name.substring(0, 2).toUpperCase();
+      document.getElementById('userName').textContent = u.name;
+
+      // Populate dashboard
+      document.getElementById('accNumber').textContent = u.id;
+      document.getElementById('accType').textContent = u.accountType === 'savings' ? 'Savings Account' : (u.accountType === 'current' ? 'Current Account' : u.accountType);
+      document.getElementById('branchName').textContent = myBranch ? myBranch.name : 'Unknown';
+      document.getElementById('ifscCode').textContent = myBranch ? myBranch.ifsc : '—';
+      document.getElementById('memberSince').textContent = new Date(u.joinDate).toLocaleDateString();
+      document.getElementById('regionName').textContent = myRegion ? myRegion.name : 'Unknown';
+      
+      // Calculate account age
+      const joinDate = new Date(u.joinDate);
+      const now = new Date();
+      const diffYears = now.getFullYear() - joinDate.getFullYear();
+      document.getElementById('accountAge').textContent = `${diffYears} years`;
+
+      let isBalanceHidden = true;
+      const toggleBtn = document.getElementById('toggleBalance');
+      const balanceEl = document.getElementById('balanceDisplay');
+      const formattedBalance = `${formatCurrency(u.balance)}`;
+
+      toggleBtn.addEventListener('click', () => {
+        isBalanceHidden = !isBalanceHidden;
+        if (isBalanceHidden) {
+          balanceEl.textContent = '₹ ••••••';
+          toggleBtn.textContent = '👁 Show Balance';
+        } else {
+          balanceEl.textContent = formattedBalance;
+          toggleBtn.textContent = '🙈 Hide Balance';
+        }
+      });
+
+      // Populate transactions
+      const recentTxns = myTxns.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5);
+      const tbody = document.getElementById('recentTxns');
+      tbody.innerHTML = '';
+      
+      if (recentTxns.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No recent transactions</td></tr>';
+      } else {
+        recentTxns.forEach(t => {
+          const isCredit = t.toAccount === u.id;
+          const tr = document.createElement('tr');
+          
+          let typeBadge = '';
+          if (t.type === 'transfer') typeBadge = '<span class="badge badge-info">Transfer</span>';
+          else if (isCredit) typeBadge = '<span class="badge badge-success">Credit</span>';
+          else typeBadge = '<span class="badge badge-warning">Debit</span>';
+
+          tr.innerHTML = `
+            <td>${new Date(t.timestamp).toLocaleDateString()}</td>
+            <td>${t.description}</td>
+            <td>${typeBadge}</td>
+            <td class="${isCredit ? 'amount-credit' : 'amount-debit'}">${isCredit ? '+' : '-'}₹${formatCurrency(t.amount)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+
+

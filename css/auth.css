@@ -1,0 +1,310 @@
+/* NetBankX Auth Page Layout — auth.css */
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  background: var(--bg-primary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Background & Animations */
+.auth-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.auth-bg .bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(38, 52, 84, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 52, 84, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+  z-index: 1;
+  opacity: 0.5;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: float 20s infinite ease-in-out;
+}
+
+.orb-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--color-hq);
+  top: -100px;
+  left: -100px;
+  animation-delay: 0s;
+}
+
+.orb-2 {
+  width: 300px;
+  height: 300px;
+  background: var(--color-regional);
+  bottom: -50px;
+  right: -50px;
+  animation-delay: -5s;
+}
+
+.orb-3 {
+  width: 250px;
+  height: 250px;
+  background: var(--color-customer);
+  top: 40%;
+  left: 60%;
+  animation-delay: -10s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+.auth-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 480px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Brand */
+.auth-brand {
+  text-align: center;
+  margin-bottom: 2rem;
+  animation: fadeIn 0.8s ease;
+}
+
+.auth-logo-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-gold);
+}
+
+.auth-logo-text {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+}
+
+.auth-logo-text span {
+  color: var(--color-gold);
+}
+
+.auth-logo-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 0.25rem;
+}
+
+/* Auth Card */
+.auth-card {
+  width: 100%;
+  background: rgba(17, 29, 53, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: slideIn 0.5s ease-out;
+}
+
+.role-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.role-tab {
+  flex: 1;
+  padding: 1rem 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.role-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.role-tab.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Role-specific active states */
+.role-tab[data-role="hq"].active {
+  border-bottom-color: #7986cb;
+  color: #7986cb;
+}
+.role-tab[data-role="regional"].active {
+  border-bottom-color: #64b5f6;
+  color: #64b5f6;
+}
+.role-tab[data-role="branch"].active {
+  border-bottom-color: #4fc3f7;
+  color: #4fc3f7;
+}
+.role-tab[data-role="customer"].active {
+  border-bottom-color: #4db6ac;
+  color: #4db6ac;
+}
+
+.auth-body {
+  padding: 2rem;
+}
+
+.auth-role-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: rgba(121, 134, 203, 0.1);
+  color: #7986cb;
+  border: 1px solid rgba(121, 134, 203, 0.2);
+  transition: all 0.3s ease;
+}
+
+.input-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* Error State */
+.auth-error {
+  display: none;
+  padding: 0.75rem 1rem;
+  background: var(--danger-bg);
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.auth-error.show {
+  display: block;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Demo Credentials */
+.demo-creds {
+  margin-top: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.demo-creds-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.demo-creds-header:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.demo-creds-body {
+  display: none;
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.demo-creds-body.open {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+.demo-creds-body ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem 0;
+}
+
+.demo-creds-body li {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.cred-id {
+  font-family: var(--font-mono);
+  color: var(--color-gold);
+}
+
+.cred-pwd {
+  font-family: var(--font-mono);
+  color: var(--info);
+}
+
+.auth-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  animation: fadeIn 1s ease 0.5s both;
+}

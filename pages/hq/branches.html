@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Directory | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: #fff; padding: 2rem; border-radius: 8px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .info-item label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; }
+    .info-item div { font-weight: 500; }
+  </style>
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['hq']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Headquarters</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="regions.html" class="nav-link"><span class="nav-icon">🗺</span><span class="nav-label">Regions</span></a>
+        <a href="branches.html" class="nav-link active"><span class="nav-icon">🏦</span><span class="nav-label">Branches</span></a>
+        <a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--hq" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">HQ Administrator</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Branch Directory</h1>
+          <p class="page-subtitle">All branches across the network</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary">+ Add Branch</button>
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input type="text" class="form-control search-input" id="branchSearch" placeholder="🔍 Search branches or IFSC..." oninput="renderBranches()">
+            <select class="form-control" id="stateFilter" onchange="renderBranches()">
+              <option value="">All States</option>
+            </select>
+            <select class="form-control" id="statusFilter" onchange="renderBranches()">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <span class="badge badge-muted" id="branchCount">0 branches</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Branch Code</th>
+                  <th>Branch Name</th>
+                  <th>State</th>
+                  <th>City</th>
+                  <th>Manager</th>
+                  <th>Customers</th>
+                  <th>IFSC</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="branchesTable">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="branchModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Branch Details</h2>
+        <button class="close-btn" onclick="closeModal('branchModal')">×</button>
+      </div>
+      <div class="info-grid" id="branchDetailsContent">
+        <!-- Rendered via JS -->
+      </div>
+      <div style="text-align: right; margin-top: 1rem;">
+        <button class="btn btn-secondary" onclick="closeModal('branchModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    function showModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Populate states
+    const states = [...new Set((window.MOCK_DATA.branches || []).map(b => b.state).filter(Boolean))];
+    const stateFilter = document.getElementById('stateFilter');
+    states.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      stateFilter.appendChild(opt);
+    });
+
+    function viewBranch(id) {
+      const branch = (window.MOCK_DATA.branches || []).find(b => b.id === id);
+      if(!branch) return;
+      const cCount = (window.MOCK_DATA.users.customers || []).filter(c => c.branchId === branch.id).length;
+      
+      const html = `
+        <div class="info-item"><label>Branch Code</label><div><span class="id-cell">${branch.id}</span></div></div>
+        <div class="info-item"><label>Branch Name</label><div>${branch.name}</div></div>
+        <div class="info-item"><label>Region ID</label><div>${branch.regionId}</div></div>
+        <div class="info-item"><label>Status</label><div><span class="badge ${getStatusBadgeClass(branch.status)}">${branch.status}</span></div></div>
+        <div class="info-item"><label>State</label><div>${branch.state}</div></div>
+        <div class="info-item"><label>City</label><div>${branch.city}</div></div>
+        <div class="info-item"><label>IFSC</label><div><span class="id-cell">${branch.ifsc}</span></div></div>
+        <div class="info-item"><label>Manager</label><div>${branch.manager || 'N/A'}</div></div>
+        <div class="info-item"><label>Customers</label><div>${cCount}</div></div>
+      `;
+      document.getElementById('branchDetailsContent').innerHTML = html;
+      showModal('branchModal');
+    }
+
+    function renderBranches() {
+      const search = document.getElementById('branchSearch').value.toLowerCase();
+      const state = document.getElementById('stateFilter').value;
+      const status = document.getElementById('statusFilter').value.toLowerCase();
+      
+      const filtered = (window.MOCK_DATA.branches || []).filter(b => {
+        const matchesSearch = b.name.toLowerCase().includes(search) || (b.ifsc && b.ifsc.toLowerCase().includes(search)) || b.id.toLowerCase().includes(search);
+        const matchesState = !state || b.state === state;
+        const matchesStatus = !status || (b.status || '').toLowerCase() === status;
+        return matchesSearch && matchesState && matchesStatus;
+      });
+
+      document.getElementById('branchCount').textContent = `${filtered.length} branches`;
+
+      const html = filtered.map(b => {
+        const cCount = (window.MOCK_DATA.users.customers || []).filter(c => c.branchId === b.id).length;
+        return `
+        <tr>
+          <td><span class="id-cell">${b.id}</span></td>
+          <td>${b.name}</td>
+          <td>${b.state || 'N/A'}</td>
+          <td>${b.city || 'N/A'}</td>
+          <td>${b.manager || 'N/A'}</td>
+          <td>${cCount}</td>
+          <td><span class="id-cell">${b.ifsc || 'N/A'}</span></td>
+          <td><span class="badge ${getStatusBadgeClass(b.status)}">${b.status}</span></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="viewBranch('${b.id}')">View</button>
+            <button class="btn btn-ghost btn-sm">Edit</button>
+          </td>
+        </tr>
+        `;
+      }).join('');
+      
+      document.getElementById('branchesTable').innerHTML = html || '<tr><td colspan="9" style="text-align:center">No branches found.</td></tr>';
+    }
+
+    renderBranches();
+  </script>
+</body>
+</html>

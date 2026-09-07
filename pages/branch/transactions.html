@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branch Transactions | NetBankX</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>const session = requireAuth(['branch']);</script>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏦</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Branch Operations</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a>
+        <a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a>
+        <a href="transactions.html" class="nav-link active"><span class="nav-icon">📋</span><span class="nav-label">Transactions</span></a>
+        <a href="network.html" class="nav-link"><span class="nav-icon">🌐</span><span class="nav-label">Network</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--branch" id="userAvatar">AM</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Branch Manager</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Branch Transactions</h1>
+          <p class="page-subtitle">Transactions recorded at this branch</p>
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="filter-bar">
+          <div class="filter-group">
+            <input type="date" class="form-control" id="dateFrom" onchange="filterData()">
+            <input type="date" class="form-control" id="dateTo" onchange="filterData()">
+            <select class="form-control" id="typeFilter" onchange="filterData()">
+              <option value="">All Types</option>
+              <option value="transfer">Transfer</option>
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>TXN ID</th>
+                  <th>Date & Time</th>
+                  <th>Type</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="txnTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/router.js"></script>
+  <script>
+    document.getElementById('userAvatar').textContent = session.user.avatar || session.user.name.charAt(0);
+    document.getElementById('userName').textContent = session.user.name;
+
+    const myBranchId = session.user.branchId;
+
+    function filterData() {
+      const dFrom = document.getElementById('dateFrom').value;
+      const dTo = document.getElementById('dateTo').value;
+      const type = document.getElementById('typeFilter').value.toLowerCase();
+
+      const currentFiltered = (window.MOCK_DATA.transactions || []).filter(t => t.branchId === myBranchId).filter(t => {
+        const matchesType = !type || t.type.toLowerCase() === type;
+        
+        let matchesDate = true;
+        if(dFrom || dTo) {
+          const tDate = new Date(t.date).getTime();
+          if(dFrom && tDate < new Date(dFrom).getTime()) matchesDate = false;
+          if(dTo && tDate > new Date(dTo).getTime() + 86400000) matchesDate = false;
+        }
+
+        return matchesType && matchesDate;
+      });
+
+      const html = currentFiltered.map(t => {
+        let typeBadge = '';
+        if (t.type.toLowerCase() === 'transfer') typeBadge = '<span class="badge badge-info">Transfer</span>';
+        else if (t.type.toLowerCase() === 'credit') typeBadge = '<span class="badge badge-success">Credit</span>';
+        else typeBadge = '<span class="badge badge-warning">Debit</span>';
+        let amountClass = (t.type.toLowerCase() === 'credit' || t.type.toLowerCase() === 'transfer') ? 'amount-credit' : 'amount-debit';
+
+        return `
+          <tr>
+            <td><span class="id-cell" style="font-size: 0.8rem;">${t.id}</span></td>
+            <td>${formatDate(t.date)}</td>
+            <td>${typeBadge}</td>
+            <td>${t.fromName || t.fromAccount || '-'}</td>
+            <td>${t.toName || t.toAccount || '-'}</td>
+            <td class="${amountClass}">${formatCurrency(t.amount)}</td>
+            <td><span class="badge ${getStatusBadgeClass(t.status)}">${t.status}</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('txnTable').innerHTML = html || '<tr><td colspan="7" style="text-align:center">No transactions found</td></tr>';
+    }
+
+    filterData();
+  </script>
+</body>
+</html>

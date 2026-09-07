@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transfer Funds - NetBankX Customer Portal</title>
+  <meta name="description" content="Securely transfer funds with real-time OSI layer network visualization.">
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+  <style>
+    .log-entry--down .log-msg { color: var(--color-info); }
+    .log-entry--up .log-msg   { color: var(--color-warning); }
+    .log-entry--success .log-msg { color: var(--color-success); }
+
+    /* ── OSI Trace Panel ─────────────────────────────────── */
+    #osiTracePanel {
+      margin-top: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    #osiTracePanelHeader {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(124,77,255,0.06);
+    }
+    #osiTraceList {
+      padding: 1rem 1.25rem;
+      max-height: 640px;
+      overflow-y: auto;
+    }
+
+    /* ── OSI Layer Legend ───────────────────────────────── */
+    .layer-legend {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 10px 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+    }
+    .layer-legend-item {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.65rem; padding: 2px 8px; border-radius: 10px;
+      font-weight: 700;
+    }
+
+    @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+    @keyframes slideIn  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body class="dashboard-body">
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Customer Portal</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">🏠</span><span class="nav-label">My Account</span></a>
+        <a href="transfer.html" class="nav-link active"><span class="nav-icon">💸</span><span class="nav-label">Transfer Funds</span></a>
+        <a href="history.html" class="nav-link"><span class="nav-icon">📜</span><span class="nav-label">History</span></a>
+        <a href="requests.html" class="nav-link"><span class="nav-icon">📬</span><span class="nav-label">Requests</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--customer" id="userAvatar">..</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Account Holder</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Transfer Funds</h1>
+          <p class="page-subtitle">Securely send money with real-time OSI layer network trace</p>
+        </div>
+      </header>
+
+      <div class="content-body">
+
+        <!-- ── ROW 1: Transfer Form + Network Canvas ── -->
+        <div class="two-col-layout" style="margin-bottom:0;">
+
+          <!-- LEFT — Transfer Form -->
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3 style="margin:0;">💸 Fund Transfer</h3>
+              <span class="badge badge-success" style="font-size:0.7rem;" id="tlsBadge">🔒 TLS 1.3 ON</span>
+            </div>
+            <div class="card-body">
+              <!-- Balance -->
+              <div class="card" style="background:var(--bg-secondary);border-color:var(--border);margin-bottom:1.25rem;padding:1rem;">
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.25rem;">Available Balance</div>
+                <div style="font-size:1.5rem;font-weight:700;color:var(--color-gold);font-family:var(--font-mono);" id="transferBalance">Loading...</div>
+              </div>
+
+              <form id="transferForm">
+                <!-- Recipient -->
+                <div class="form-group">
+                  <label class="form-label">Recipient Account Number</label>
+                  <input type="text" id="toAccount" class="form-control" placeholder="e.g. ACC-100003" autocomplete="off" required>
+                  <div id="recipientStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2em;"></div>
+                  <!-- Quick pick dropdown -->
+                  <div style="margin-top:0.5rem;">
+                    <select id="quickPickRecipient" class="form-control" style="font-size:0.8rem;">
+                      <option value="">⚡ Quick Select — Choose a recipient...</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Amount -->
+                <div class="form-group">
+                  <label class="form-label">Amount (₹)</label>
+                  <input type="number" id="amount" class="form-control" placeholder="Enter amount" min="1" required>
+                  <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('amount').value=500">₹500</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('amount').value=1000">₹1,000</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('amount').value=5000">₹5,000</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('amount').value=10000">₹10,000</button>
+                  </div>
+                </div>
+
+                <!-- Remarks -->
+                <div class="form-group">
+                  <label class="form-label">Remarks (Optional)</label>
+                  <input type="text" id="remarks" class="form-control" placeholder="What's this for?">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-xl" id="transferBtn">Transfer Now →</button>
+
+                <!-- Success Panel -->
+                <div id="successPanel" class="alert alert-success animate-fade" style="display:none;margin-top:1rem;padding:1rem;border-radius:4px;border:1px solid var(--color-success);">
+                  <div style="font-weight:700;margin-bottom:0.25rem;color:var(--color-success);">✅ Transfer Successful!</div>
+                  <div style="font-size:0.8rem;">Reference: <span id="txnIdDisplay" style="font-family:var(--font-mono);"></span></div>
+                  <div style="font-size:0.8rem;margin-top:0.25rem;">New Balance: <span id="newBalance" style="font-weight:600;"></span></div>
+                </div>
+              </form>
+
+              <div style="margin-top:1rem;font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:0.4rem;">
+                🔒 All transfers are end-to-end encrypted via TLS 1.3 and logged on the ledger
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT — Canvas -->
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3 style="margin:0;">🌐 Live Network Packet Trace</h3>
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <select id="speedToggle" class="form-control" style="width:auto;padding:0.3rem 0.5rem;font-size:0.78rem;">
+                  <option value="0.5">🐢 Slow</option>
+                  <option value="1" selected>⚡ Normal</option>
+                  <option value="2">🚀 Fast</option>
+                </select>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;height:340px;">
+              <canvas id="transferCanvas" width="800" height="340" style="width:100%;height:340px;display:block;background:linear-gradient(to bottom,#070d1a,#0a1428);"></canvas>
+            </div>
+            <div class="card-body" style="padding-top:0;">
+              <!-- Node path bar -->
+              <div style="display:flex;justify-content:space-between;font-size:0.63rem;color:var(--text-muted);padding:0.5rem 0;border-bottom:1px solid var(--border);margin-bottom:0.75rem;flex-wrap:wrap;gap:2px;">
+                <span>💻 Your Device</span><span>→</span>
+                <span>🏦 Branch</span><span>→</span>
+                <span>🌐 Src Hub</span><span>→</span>
+                <span>🏛 HQ</span><span>→</span>
+                <span>🌐 Dst Hub</span><span>→</span>
+                <span>🏦 Dst Branch</span><span>→</span>
+                <span>📱 Recipient</span>
+              </div>
+              <!-- Status Log -->
+              <div class="section-title" style="margin-bottom:0.5rem;">Transmission Log</div>
+              <div class="network-log" id="statusLog" style="height:130px;overflow-y:auto;background:var(--bg-secondary);padding:0.5rem;border-radius:4px;font-family:var(--font-mono);font-size:0.75rem;">
+                <div style="display:flex;gap:0.5rem;margin-bottom:0.25rem;opacity:0.6;">
+                  <span style="color:var(--text-muted);font-size:0.68rem;">--:--:--</span>
+                  <span style="font-weight:bold;color:#40c4ff;font-size:0.72rem;">● IDLE</span>
+                  <span style="color:#9fa8da;font-size:0.7rem;">Waiting for transfer request... Network ready.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ROW 2: OSI Layer Trace Panel ── -->
+        <div id="osiTracePanel">
+          <div id="osiTracePanelHeader">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#7c4dff;box-shadow:0 0 8px #7c4dff;"></div>
+              <div>
+                <div style="font-size:0.9rem;font-weight:700;color:#e8eaf6;">📡 OSI Layer-by-Layer Data Flow</div>
+                <div style="font-size:0.7rem;color:#5c6bc0;">Every hop · Every layer · Real-time trace</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span id="osiHopCounter" style="font-size:0.72rem;color:#5c6bc0;">0 / 7 hops</span>
+              <button onclick="document.getElementById('osiTraceList').innerHTML='<div style=\'text-align:center;padding:32px;color:#5c6bc0;\'><div style=\'font-size:2.5rem;opacity:0.3;\'>🌐</div><div style=\'font-size:0.82rem;\'>Initiate a transfer to see the live OSI layer trace</div></div>'" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+          </div>
+
+          <!-- OSI Layer Legend -->
+          <div class="layer-legend">
+            <span class="layer-legend-item" style="background:rgba(124,77,255,0.1);color:#7c4dff;border:1px solid #7c4dff44;">💻 L7 Application</span>
+            <span class="layer-legend-item" style="background:rgba(83,109,254,0.1);color:#536dfe;border:1px solid #536dfe44;">🔐 L6 Presentation</span>
+            <span class="layer-legend-item" style="background:rgba(30,136,229,0.1);color:#1e88e5;border:1px solid #1e88e544;">🤝 L5 Session</span>
+            <span class="layer-legend-item" style="background:rgba(0,172,193,0.1);color:#00acc1;border:1px solid #00acc144;">📦 L4 Transport</span>
+            <span class="layer-legend-item" style="background:rgba(67,160,71,0.1);color:#43a047;border:1px solid #43a04744;">🌐 L3 Network</span>
+            <span class="layer-legend-item" style="background:rgba(251,140,0,0.1);color:#fb8c00;border:1px solid #fb8c0044;">🔗 L2 Data Link</span>
+            <span class="layer-legend-item" style="background:rgba(229,57,53,0.1);color:#e53935;border:1px solid #e5393544;">⚡ L1 Physical</span>
+            <span style="margin-left:auto;font-size:0.65rem;color:#5c6bc0;align-self:center;">
+              Intermediate routers: L1-L3 only &nbsp;|&nbsp; Source/Dest: Full L1-L7
+            </span>
+          </div>
+
+          <!-- Trace List -->
+          <div id="osiTraceList">
+            <div style="text-align:center;padding:32px;color:#5c6bc0;">
+              <div style="font-size:2.5rem;margin-bottom:8px;opacity:0.3;">🌐</div>
+              <div style="font-size:0.82rem;">Initiate a transfer to see the live OSI layer trace</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /content-body -->
+    </main>
+  </div>
+
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/osi-trace.js"></script>
+  <script src="../../js/network-sim.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const session = requireAuth(['customer']); if (!session) return;
+      const u = session.user;
+
+      document.getElementById('userAvatar').textContent = u.avatar || u.name.substring(0,2).toUpperCase();
+      document.getElementById('userName').textContent = u.name;
+
+      let currentBalance = u.balance;
+      const updateBalanceDisplay = () => {
+        document.getElementById('transferBalance').textContent = formatCurrency(currentBalance);
+      };
+      updateBalanceDisplay();
+
+      /* Recipient validation */
+      const toAccountInput = document.getElementById('toAccount');
+      const recipientStatus = document.getElementById('recipientStatus');
+      let validRecipientId = null;
+
+      toAccountInput.addEventListener('input', (e) => {
+        const accId = e.target.value.trim();
+        if (!accId) { recipientStatus.textContent = ''; validRecipientId = null; return; }
+        if (accId === u.id) {
+          recipientStatus.innerHTML = '❌ Cannot transfer to self';
+          recipientStatus.style.color = 'var(--danger)';
+          validRecipientId = null; return;
+        }
+        const recipient = MOCK_DATA.users.customers.find(c => c.id === accId);
+        if (recipient) {
+          const sameRegion = recipient.regionId === u.regionId;
+          recipientStatus.innerHTML = `✅ Found: <strong>${recipient.name}</strong> — ${recipient.branchId} &nbsp;
+            <span style="font-size:0.7rem;background:${sameRegion?'rgba(0,230,118,0.1)':'rgba(64,196,255,0.1)'};
+              color:${sameRegion?'#00e676':'#40c4ff'};padding:1px 6px;border-radius:8px;">
+              ${sameRegion ? '⚡ Same Region' : '🌐 Inter-State — 7-Hop Route'}
+            </span>`;
+          recipientStatus.style.color = 'var(--success)';
+          validRecipientId = recipient.id;
+        } else {
+          recipientStatus.innerHTML = '❌ Account not found';
+          recipientStatus.style.color = 'var(--danger)';
+          validRecipientId = null;
+        }
+      });
+
+      /* Populate quick-pick dropdown */
+      const quickPick = document.getElementById('quickPickRecipient');
+      if (quickPick) {
+        MOCK_DATA.users.customers.forEach(c => {
+          if (c.id === u.id) return; // skip self
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          const stateLabel = c.regionId === 'MH' ? 'Maharashtra' : c.regionId === 'DL' ? 'Delhi' : 'Karnataka';
+          const sameState = c.regionId === u.regionId;
+          opt.textContent = `${c.name} (${c.id}) — ${stateLabel} ${sameState ? '⚡ same region' : '🌐 inter-state'}`;
+          quickPick.appendChild(opt);
+        });
+        quickPick.addEventListener('change', () => {
+          if (!quickPick.value) return;
+          toAccountInput.value = quickPick.value;
+          toAccountInput.dispatchEvent(new Event('input')); // trigger validation
+        });
+      }
+
+      /* Init canvas */
+      if (window.NetworkSim) {
+        NetworkSim.init('transferCanvas', 'transfer');
+        document.getElementById('speedToggle').addEventListener('change', (e) => {
+          NetworkSim.setSpeed(parseFloat(e.target.value));
+        });
+      }
+
+      /* Hop counter update */
+      let hopCount = 0;
+      const origAddHop = window.OSITrace ? window.OSITrace.addHop.bind(window.OSITrace) : null;
+      if (window.OSITrace && origAddHop) {
+        window.OSITrace.addHop = function(cid, idx, opts, mode) {
+          hopCount = idx + 1;
+          document.getElementById('osiHopCounter').textContent = hopCount + ' / 7 hops';
+          origAddHop(cid, idx, opts, mode);
+        };
+      }
+
+      /* Form submit */
+      document.getElementById('transferForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const amount = parseFloat(document.getElementById('amount').value);
+        if (isNaN(amount) || amount <= 0) { showToast('Enter a valid amount > 0', 'error'); return; }
+        if (amount > currentBalance) { showToast('Insufficient balance', 'error'); return; }
+        if (!validRecipientId) { showToast('Enter a valid recipient account', 'error'); return; }
+
+        const formEls = document.getElementById('transferForm').elements;
+        for (let el of formEls) el.disabled = true;
+        document.getElementById('successPanel').style.display = 'none';
+        document.getElementById('osiHopCounter').textContent = '0 / 7 hops';
+        hopCount = 0;
+
+        const recipient = MOCK_DATA.users.customers.find(c => c.id === validRecipientId);
+
+        if (window.NetworkSim) {
+          NetworkSim.animateTransfer('transferCanvas', {
+            fromAccount: u.id,
+            toAccount: validRecipientId,
+            amount: amount,
+            senderName: u.name,
+            senderBranch: u.branchId,
+            senderRegion: u.regionId,
+            receiverName: recipient ? recipient.name : 'Recipient',
+            receiverBranch: recipient ? recipient.branchId : 'Unknown',
+            receiverRegion: recipient ? recipient.regionId : 'XX',
+          }, 'statusLog', (result) => {
+            currentBalance -= amount;
+            session.user.balance = currentBalance;
+            updateBalanceDisplay();
+
+            document.getElementById('successPanel').style.display = 'block';
+            document.getElementById('txnIdDisplay').textContent = result.txnId || 'TXN-' + Math.floor(Math.random()*1e9);
+            document.getElementById('newBalance').textContent = formatCurrency(currentBalance);
+
+            for (let el of formEls) el.disabled = false;
+            document.getElementById('transferBtn').disabled = false;
+            showToast('Transfer completed successfully!', 'success');
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

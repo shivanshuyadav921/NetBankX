@@ -1,0 +1,242 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Requests - NetBankX Customer Portal</title>
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="../../css/dashboard.css">
+</head>
+<body class="dashboard-body">
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🏛</span>
+        <div class="logo-text-group">
+          <span class="logo-name">NetBankX</span>
+          <span class="logo-role">Customer Portal</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link"><span class="nav-icon">🏠</span><span class="nav-label">My Account</span></a>
+        <a href="transfer.html" class="nav-link"><span class="nav-icon">💸</span><span class="nav-label">Transfer Funds</span></a>
+        <a href="history.html" class="nav-link"><span class="nav-icon">📜</span><span class="nav-label">History</span></a>
+        <a href="requests.html" class="nav-link active"><span class="nav-icon">📬</span><span class="nav-label">Requests</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar user-avatar--customer" id="userAvatar">..</div>
+          <div>
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-role-text">Account Holder</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Service Requests</h1>
+          <p class="page-subtitle">Track and raise service requests</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="showNewRequestModal()">+ New Request</button>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <div id="requestsContainer" class="grid-2">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- New Request Modal -->
+  <div class="modal-overlay" id="newRequestModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+    <div class="modal" style="background:var(--bg-primary); padding:1.5rem; border-radius:8px; width:400px; max-width:90%;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h3 class="modal-title" style="margin:0;">📬 New Service Request</h3>
+        <button class="modal-close btn btn-ghost" onclick="hideModal('newRequestModal')" style="padding:0.2rem 0.5rem;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label class="form-label">Request Type</label>
+          <select class="form-control" id="reqType" style="width:100%;">
+            <option value="cheque_book">📋 Cheque Book</option>
+            <option value="debit_card">💳 Debit Card Replacement</option>
+            <option value="statement">📄 Account Statement</option>
+            <option value="loan_inquiry">🏠 Loan Inquiry</option>
+            <option value="address_change">📍 Address Change</option>
+            <option value="nomination_update">👨👩👧 Nomination Update</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label class="form-label">Details</label>
+          <textarea class="form-control" id="reqDetails" rows="3" placeholder="Describe your request..." style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+        <button class="btn btn-ghost" onclick="hideModal('newRequestModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/mock-data.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script>
+    let u;
+    let myRequests = [];
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      const session = requireAuth(['customer']); if (!session) return;
+      u = session.user;
+
+      // Populate sidebar
+      document.getElementById('userAvatar').textContent = u.avatar || u.name.substring(0, 2).toUpperCase();
+      document.getElementById('userName').textContent = u.name;
+
+      myRequests = MOCK_DATA.serviceRequests.filter(r => r.customerId === u.id);
+      
+      // Sort newest first
+      myRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      renderRequests();
+    });
+
+    const ICONS = {
+      cheque_book: '📋',
+      debit_card: '💳',
+      statement: '📄',
+      loan_inquiry: '🏠',
+      address_change: '📍',
+      nomination_update: '👨👩👧'
+    };
+
+    const TITLES = {
+      cheque_book: 'Cheque Book',
+      debit_card: 'Debit Card Replacement',
+      statement: 'Account Statement',
+      loan_inquiry: 'Loan Inquiry',
+      address_change: 'Address Change',
+      nomination_update: 'Nomination Update'
+    };
+
+    const getStatusBadge = (status) => {
+      switch(status) {
+        case 'pending': return '<span class="badge badge-warning">Pending</span>';
+        case 'processing': return '<span class="badge badge-info">Processing</span>';
+        case 'completed': return '<span class="badge badge-success">Completed</span>';
+        default: return '<span class="badge badge-muted">Unknown</span>';
+      }
+    };
+
+    const renderRequests = () => {
+      const container = document.getElementById('requestsContainer');
+      container.innerHTML = '';
+      
+      if (myRequests.length === 0) {
+        container.className = '';
+        container.innerHTML = `
+          <div class="empty-state" style="text-align:center; padding:3rem 1rem;">
+            <div class="empty-state-icon" style="font-size:3rem; margin-bottom:1rem;">📬</div>
+            <div style="font-size:1rem; font-weight:600; margin-bottom:0.5rem;">No Service Requests</div>
+            <div class="empty-state-text" style="color:var(--text-muted);">Raise a request for cheque books, card replacement, statements, and more.</div>
+            <button class="btn btn-primary" style="margin-top:1rem;" onclick="showNewRequestModal()">+ Raise First Request</button>
+          </div>
+        `;
+        return;
+      }
+      
+      container.className = myRequests.length > 2 ? 'grid-3' : 'grid-2';
+      
+      myRequests.forEach(req => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '1rem';
+        
+        let step = 1;
+        if (req.status === 'processing') step = 2;
+        if (req.status === 'completed') step = 3;
+
+        card.innerHTML = `
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:1.2rem;">${ICONS[req.type] || '📝'}</span>
+              <h4 style="margin:0; font-size:1rem;">${TITLES[req.type] || req.type}</h4>
+            </div>
+            ${getStatusBadge(req.status)}
+          </div>
+          <div class="card-body">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Submitted on: ${new Date(req.createdAt).toLocaleDateString()}</div>
+            <p style="font-size:0.9rem; margin-bottom:1rem;">${req.details}</p>
+            
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; position:relative; padding-top:0.5rem;">
+              <div style="position:absolute; top:8px; left:10%; right:10%; height:2px; background:var(--border); z-index:0;"></div>
+              
+              <div style="text-align:center; position:relative; z-index:1; width:33%;">
+                <div style="width:12px; height:12px; border-radius:50%; background:${step >= 1 ? 'var(--color-gold)' : 'var(--bg-secondary)'}; margin:0 auto 4px auto; border:2px solid var(--bg-primary);"></div>
+                <span style="color:${step >= 1 ? 'var(--text-primary)' : 'var(--text-muted)'}">Submitted</span>
+              </div>
+              <div style="text-align:center; position:relative; z-index:1; width:33%;">
+                <div style="width:12px; height:12px; border-radius:50%; background:${step >= 2 ? 'var(--color-gold)' : 'var(--bg-secondary)'}; margin:0 auto 4px auto; border:2px solid var(--bg-primary);"></div>
+                <span style="color:${step >= 2 ? 'var(--text-primary)' : 'var(--text-muted)'}">Processing</span>
+              </div>
+              <div style="text-align:center; position:relative; z-index:1; width:33%;">
+                <div style="width:12px; height:12px; border-radius:50%; background:${step >= 3 ? 'var(--color-gold)' : 'var(--bg-secondary)'}; margin:0 auto 4px auto; border:2px solid var(--bg-primary);"></div>
+                <span style="color:${step >= 3 ? 'var(--text-primary)' : 'var(--text-muted)'}">Completed</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer" style="display:flex; justify-content:space-between; font-size:0.8rem; background:var(--bg-secondary);">
+            <span style="font-family:var(--font-mono); color:var(--text-muted);">${req.id}</span>
+            <span>Expected: ${new Date(req.expectedDate || Date.now() + 86400000*3).toLocaleDateString()}</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    };
+
+    window.showNewRequestModal = () => {
+      document.getElementById('newRequestModal').style.display = 'flex';
+      document.getElementById('reqDetails').value = '';
+    };
+
+    window.hideModal = (id) => {
+      document.getElementById(id).style.display = 'none';
+    };
+
+    window.submitRequest = () => {
+      const type = document.getElementById('reqType').value;
+      const details = document.getElementById('reqDetails').value;
+      
+      if (!details.trim()) {
+        showToast('Please provide request details', 'error');
+        return;
+      }
+      
+      const newReq = {
+        id: 'REQ-' + Math.floor(Math.random()*100000),
+        customerId: u.id,
+        type: type,
+        status: 'pending',
+        details: details,
+        createdAt: new Date().toISOString(),
+        expectedDate: new Date(Date.now() + 86400000*3).toISOString()
+      };
+      
+      myRequests.unshift(newReq);
+      renderRequests();
+      hideModal('newRequestModal');
+      showToast('Request submitted successfully', 'success');
+    };
+  </script>
+</body>
+</html>
+
+
