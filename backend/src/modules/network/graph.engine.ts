@@ -29,15 +29,16 @@ export class GraphEngine {
     }
 
     for (const link of links) {
-      // Compute realistic dynamic edge weight
-      const weight = this.calculateEdgeWeight(link);
+      // Compute realistic dynamic edge weight for forward and reverse directions
+      const forwardWeight = this.calculateEdgeWeight(link, link.sourceNodeId, link.destNodeId);
+      const reverseWeight = this.calculateEdgeWeight(link, link.destNodeId, link.sourceNodeId);
 
       // Bidirectional enterprise WAN links
       const forwardEdge: GraphEdge = {
         linkId: link.id,
         sourceId: link.sourceNodeId,
         targetId: link.destNodeId,
-        weight,
+        weight: forwardWeight,
         latencyMs: link.baseLatencyMs,
         bandwidthMbps: link.bandwidthMbps,
         lossRate: link.packetLossRate,
@@ -48,7 +49,7 @@ export class GraphEngine {
         linkId: link.id,
         sourceId: link.destNodeId,
         targetId: link.sourceNodeId,
-        weight,
+        weight: reverseWeight,
         latencyMs: link.baseLatencyMs,
         bandwidthMbps: link.bandwidthMbps,
         lossRate: link.packetLossRate,
@@ -64,13 +65,18 @@ export class GraphEngine {
     }
   }
 
-  private calculateEdgeWeight(link: NetworkLink): number {
+  private calculateEdgeWeight(link: NetworkLink, fromNodeId: string, toNodeId: string): number {
     // If link is severed, weight is infinite
     if (link.status === 'SEVERED') {
       return Infinity;
     }
 
-    const targetNode = this.nodes.get(link.destNodeId);
+    const sourceNode = this.nodes.get(fromNodeId);
+    if (sourceNode && sourceNode.status === 'OFFLINE') {
+      return Infinity;
+    }
+
+    const targetNode = this.nodes.get(toNodeId);
     if (targetNode && targetNode.status === 'OFFLINE') {
       return Infinity;
     }
@@ -95,6 +101,16 @@ export class GraphEngine {
   public findShortestPath(sourceId: string, destId: string): CalculatedRoute {
     if (!this.nodes.has(sourceId) || !this.nodes.has(destId)) {
       throw new Error(`Invalid source (${sourceId}) or destination (${destId}) node in topology`);
+    }
+
+    const srcNode = this.nodes.get(sourceId);
+    const dstNode = this.nodes.get(destId);
+
+    if (srcNode && srcNode.status === 'OFFLINE') {
+      throw new Error(`Source node ${srcNode.name} is currently OFFLINE.`);
+    }
+    if (dstNode && dstNode.status === 'OFFLINE') {
+      throw new Error(`Destination node ${dstNode.name} is currently OFFLINE.`);
     }
 
     const distances: Map<string, number> = new Map();
@@ -144,7 +160,7 @@ export class GraphEngine {
         if (edge.weight === Infinity) continue;
 
         const targetNode = this.nodes.get(edge.targetId);
-        if (targetNode && targetNode.status === 'OFFLINE' && edge.targetId !== destId) {
+        if (targetNode && targetNode.status === 'OFFLINE') {
           continue;
         }
 

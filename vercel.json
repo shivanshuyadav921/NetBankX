@@ -1,19 +1,582 @@
-{
-  "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "frontend/dist",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/health",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Compiler Design Practical Lab Suite</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #222; margin: 30px auto; max-width: 900px; padding: 0 15px; }
+  h1 { font-size: 24px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 20px; }
+  h2 { font-size: 19px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 4px; color: #1a365d; }
+  h3 { font-size: 15px; margin-top: 20px; color: #2d3748; }
+  p { margin: 8px 0; font-size: 13px; }
+  pre { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; overflow-x: auto; font-family: Consolas, Monaco, "Courier New", monospace; font-size: 11.5px; line-height: 1.4; page-break-inside: avoid; }
+  code { font-family: Consolas, Monaco, "Courier New", monospace; }
+  @media print {
+    body { margin: 15mm; max-width: 100%; font-size: 11pt; }
+    pre { background: #fdfdfd; border: 1px solid #ccc; font-size: 9pt; page-break-inside: avoid; }
+    h2, h3 { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>COMPILER DESIGN PRACTICAL LABORATORY SUITE</h1>
+
+<h2>SECTION 1: C PROGRAMS</h2>
+
+<h3>1. Lexical Analysis (lexical_analyzer.c)</h3>
+<p>Tokenizes C code, categorizing keywords, identifiers, constants, multi-character operators, separators, and strings while filtering out comments.</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;ctype.h&gt;
+
+const char *keywords[] = {
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "int", "long", "register", "return", "short", "signed", "sizeof", "static",
+    "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
+};
+
+int is_keyword(const char *str) {
+    for (int i = 0; i &lt; 32; i++) {
+        if (strcmp(str, keywords[i]) == 0) return 1;
     }
-  ]
+    return 0;
 }
+
+void tokenize(FILE *fp) {
+    int ch;
+    int line = 1;
+    char buffer[256];
+
+    while ((ch = fgetc(fp)) != EOF) {
+        if (ch == '\n') {
+            line++;
+            continue;
+        }
+        if (isspace(ch)) continue;
+
+        // Skip comments and handle division
+        if (ch == '/') {
+            int next = fgetc(fp);
+            if (next == '/') {
+                while ((ch = fgetc(fp)) != EOF &amp;&amp; ch != '\n');
+                if (ch == '\n') line++;
+                continue;
+            } else if (next == '*') {
+                int prev = 0;
+                while ((ch = fgetc(fp)) != EOF) {
+                    if (ch == '\n') line++;
+                    if (prev == '*' &amp;&amp; ch == '/') break;
+                    prev = ch;
+                }
+                continue;
+            } else {
+                if (next != EOF) ungetc(next, fp);
+                printf("[Line %d] OPERATOR: /\n", line);
+                continue;
+            }
+        }
+
+        // String and character literals
+        if (ch == '"' || ch == '\'') {
+            char quote = ch;
+            int idx = 0;
+            buffer[idx++] = quote;
+            while ((ch = fgetc(fp)) != EOF &amp;&amp; ch != quote) {
+                if (ch == '\\') {
+                    buffer[idx++] = ch;
+                    ch = fgetc(fp);
+                }
+                if (idx &lt; 254) buffer[idx++] = ch;
+            }
+            buffer[idx++] = quote;
+            buffer[idx] = '\0';
+            printf("[Line %d] LITERAL: %s\n", line, buffer);
+            continue;
+        }
+
+        // Identifiers and keywords
+        if (isalpha(ch) || ch == '_') {
+            int idx = 0;
+            buffer[idx++] = ch;
+            while ((ch = fgetc(fp)) != EOF &amp;&amp; (isalnum(ch) || ch == '_')) {
+                if (idx &lt; 254) buffer[idx++] = ch;
+            }
+            buffer[idx] = '\0';
+            if (ch != EOF) ungetc(ch, fp);
+
+            if (is_keyword(buffer)) {
+                printf("[Line %d] KEYWORD: %s\n", line, buffer);
+            } else {
+                printf("[Line %d] IDENTIFIER: %s\n", line, buffer);
+            }
+            continue;
+        }
+
+        // Integer and float constants
+        if (isdigit(ch) || (ch == '.' &amp;&amp; isdigit(ungetc(fgetc(fp), fp)))) {
+            int idx = 0;
+            buffer[idx++] = ch;
+            int is_float = (ch == '.');
+
+            while ((ch = fgetc(fp)) != EOF &amp;&amp; (isalnum(ch) || ch == '.')) {
+                if (ch == '.') is_float = 1;
+                if (idx &lt; 254) buffer[idx++] = ch;
+            }
+            buffer[idx] = '\0';
+            if (ch != EOF) ungetc(ch, fp);
+
+            printf("[Line %d] %s: %s\n", line, is_float ? "FLOAT" : "NUMBER", buffer);
+            continue;
+        }
+
+        // Multi-character and relational operators
+        int next = fgetc(fp);
+        char op2[3] = { (char)ch, (char)next, '\0' };
+        if ((ch == '+' &amp;&amp; (next == '+' || next == '=')) ||
+            (ch == '-' &amp;&amp; (next == '-' || next == '=' || next == '&gt;')) ||
+            (ch == '=' &amp;&amp; next == '=') ||
+            (ch == '!' &amp;&amp; next == '=') ||
+            (ch == '&lt;' &amp;&amp; (next == '=' || next == '&lt;')) ||
+            (ch == '&gt;' &amp;&amp; (next == '=' || next == '&gt;')) ||
+            (ch == '&amp;' &amp;&amp; next == '&amp;') ||
+            (ch == '|' &amp;&amp; next == '|')) {
+            printf("[Line %d] OPERATOR: %s\n", line, op2);
+            continue;
+        }
+        if (next != EOF) ungetc(next, fp);
+
+        if (strchr("+-*%=!&lt;&gt;^&amp;|~?", ch)) {
+            printf("[Line %d] OPERATOR: %c\n", line, ch);
+        } else if (strchr("(){}[],;:.", ch)) {
+            printf("[Line %d] SEPARATOR: %c\n", line, ch);
+        } else {
+            printf("[Line %d] UNKNOWN: %c\n", line, ch);
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    FILE *fp = (argc &gt; 1) ? fopen(argv[1], "r") : stdin;
+    if (!fp) {
+        perror("Error opening input source file");
+        return 1;
+    }
+    tokenize(fp);
+    if (fp != stdin) fclose(fp);
+    return 0;
+}</code></pre>
+
+<h3>2. Left Recursion Elimination (left_recursion.c)</h3>
+<p>Eliminates immediate left recursion from arbitrary CFG productions.</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+void eliminate_left_recursion(char nt, char prod[]) {
+    char alphas[10][50], betas[10][50];
+    int alpha_count = 0, beta_count = 0;
+    
+    char *token = strtok(prod, "|");
+    while (token != NULL) {
+        if (token[0] == nt) {
+            strcpy(alphas[alpha_count++], token + 1);
+        } else {
+            strcpy(betas[beta_count++], token);
+        }
+        token = strtok(NULL, "|");
+    }
+
+    if (alpha_count == 0) {
+        printf("Grammar is not left-recursive for non-terminal %c.\n", nt);
+        return;
+    }
+
+    printf("\nAfter Removing Left Recursion:\n");
+    printf("%c -&gt; ", nt);
+    for (int i = 0; i &lt; beta_count; i++) {
+        if (strcmp(betas[i], "ε") == 0 || strcmp(betas[i], "^") == 0) {
+            printf("%c'", nt);
+        } else {
+            printf("%s%c'", betas[i], nt);
+        }
+        if (i &lt; beta_count - 1) printf(" | ");
+    }
+    printf("\n");
+
+    printf("%c' -&gt; ", nt);
+    for (int i = 0; i &lt; alpha_count; i++) {
+        printf("%s%c' | ", alphas[i], nt);
+    }
+    printf("ε\n");
+}
+
+int main(void) {
+    char nt;
+    char prod[200];
+    printf("Enter Non-Terminal (e.g. E): ");
+    if (scanf(" %c", &amp;nt) != 1) return 1;
+    printf("Enter production RHS alternatives separated by '|' (e.g. E+T|E-T|T): ");
+    if (scanf("%199s", prod) != 1) return 1;
+
+    eliminate_left_recursion(nt, prod);
+    return 0;
+}</code></pre>
+
+<h3>3. Left Factoring (left_factoring.c)</h3>
+<p>Finds the longest common prefix across alternatives and applies left factoring.</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+int common_prefix_len(const char *s1, const char *s2) {
+    int i = 0;
+    while (s1[i] &amp;&amp; s2[i] &amp;&amp; s1[i] == s2[i]) i++;
+    return i;
+}
+
+void left_factor(char nt, char prod[]) {
+    char alternatives[10][50];
+    int n = 0;
+
+    char *token = strtok(prod, "|");
+    while (token != NULL) {
+        strcpy(alternatives[n++], token);
+        token = strtok(NULL, "|");
+    }
+
+    int best_len = 0;
+    int group1 = -1, group2 = -1;
+
+    for (int i = 0; i &lt; n; i++) {
+        for (int j = i + 1; j &lt; n; j++) {
+            int len = common_prefix_len(alternatives[i], alternatives[j]);
+            if (len &gt; best_len) {
+                best_len = len;
+                group1 = i;
+                group2 = j;
+            }
+        }
+    }
+
+    if (best_len == 0) {
+        printf("No common prefix detected. Grammar is already left-factored.\n");
+        return;
+    }
+
+    char prefix[50];
+    strncpy(prefix, alternatives[group1], best_len);
+    prefix[best_len] = '\0';
+
+    printf("\nAfter Left Factoring:\n");
+    printf("%c -&gt; %s%c'", nt, prefix, nt);
+    for (int i = 0; i &lt; n; i++) {
+        if (strncmp(alternatives[i], prefix, best_len) != 0) {
+            printf(" | %s", alternatives[i]);
+        }
+    }
+    printf("\n");
+
+    printf("%c' -&gt; ", nt);
+    int printed = 0;
+    for (int i = 0; i &lt; n; i++) {
+        if (strncmp(alternatives[i], prefix, best_len) == 0) {
+            if (printed) printf(" | ");
+            char *suffix = alternatives[i] + best_len;
+            if (strlen(suffix) == 0) printf("ε");
+            else printf("%s", suffix);
+            printed = 1;
+        }
+    }
+    printf("\n");
+}
+
+int main(void) {
+    char nt;
+    char prod[200];
+    printf("Enter Non-Terminal (e.g. S): ");
+    if (scanf(" %c", &amp;nt) != 1) return 1;
+    printf("Enter production RHS alternatives separated by '|' (e.g. iEtS|iEtSeS|a): ");
+    if (scanf("%199s", prod) != 1) return 1;
+
+    left_factor(nt, prod);
+    return 0;
+}</code></pre>
+
+<h3>4. Shift-Reduce Parser (shift_reduce.c)</h3>
+<p>Simulates bottom-up shift-reduce parsing with precedence resolution.</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+char stack[100];
+int top = -1;
+char input[100];
+int ip = 0;
+
+void push(char c) { stack[++top] = c; stack[top + 1] = '\0'; }
+void pop(int n) { top -= n; stack[top + 1] = '\0'; }
+
+void print_step(const char *action) {
+    printf("%-15s %15s %-20s\n", stack, input + ip, action);
+}
+
+int check_precedence_reduce(char op_on_stack, char op_lookahead) {
+    if (op_on_stack == '*' &amp;&amp; (op_lookahead == '+' || op_lookahead == '$' || op_lookahead == ')'))
+        return 1;
+    if (op_on_stack == '+' &amp;&amp; (op_lookahead == '+' || op_lookahead == '$' || op_lookahead == ')'))
+        return 1;
+    return 0;
+}
+
+int try_reduce(char lookahead) {
+    if (top &gt;= 1 &amp;&amp; stack[top - 1] == 'i' &amp;&amp; stack[top] == 'd') {
+        pop(2);
+        push('E');
+        print_step("Reduce: E -&gt; id");
+        return 1;
+    }
+    if (top &gt;= 2 &amp;&amp; stack[top - 2] == '(' &amp;&amp; stack[top - 1] == 'E' &amp;&amp; stack[top] == ')') {
+        pop(3);
+        push('E');
+        print_step("Reduce: E -&gt; (E)");
+        return 1;
+    }
+    if (top &gt;= 2 &amp;&amp; stack[top - 2] == 'E' &amp;&amp; stack[top] == 'E') {
+        char op = stack[top - 1];
+        if (op == '+' || op == '*') {
+            if (check_precedence_reduce(op, lookahead)) {
+                pop(3);
+                push('E');
+                char act[30];
+                sprintf(act, "Reduce: E -&gt; E%cE", op);
+                print_step(act);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int main(void) {
+    printf("Enter input string ending with $ (e.g., id+id*id$): ");
+    if (scanf("%99s", input) != 1) return 1;
+
+    printf("\n%-15s %15s %-20s\n", "STACK", "INPUT", "ACTION");
+    printf("----------------------------------------------------\n");
+
+    while (input[ip] != '\0') {
+        char lookahead = input[ip];
+        if (try_reduce(lookahead)) continue;
+
+        if (lookahead == '$') {
+            while (try_reduce('$'));
+            break;
+        }
+
+        push(input[ip++]);
+        print_step("Shift");
+    }
+
+    if (strcmp(stack, "E") == 0 &amp;&amp; input[ip] == '$') {
+        printf("\nResult: String ACCEPTED\n");
+    } else {
+        printf("\nResult: String REJECTED\n");
+    }
+    return 0;
+}</code></pre>
+
+<h3>5. Recursive Descent Parser (recursive_descent.c)</h3>
+<p>Implements the exact grammar: E &rarr; T E', E' &rarr; + T E' | &epsilon;, T &rarr; F T', T' &rarr; * F T' | &epsilon;, F &rarr; (E) | id.</p>
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+char *cursor;
+int error_flag = 0;
+
+void E(void);
+void Edash(void);
+void T(void);
+void Tdash(void);
+void F(void);
+
+void match(char expected) {
+    if (*cursor == expected) {
+        cursor++;
+    } else {
+        error_flag = 1;
+    }
+}
+
+void E(void) {
+    T();
+    Edash();
+}
+
+void Edash(void) {
+    if (*cursor == '+') {
+        match('+');
+        T();
+        Edash();
+    }
+}
+
+void T(void) {
+    F();
+    Tdash();
+}
+
+void Tdash(void) {
+    if (*cursor == '*') {
+        match('*');
+        F();
+        Tdash();
+    }
+}
+
+void F(void) {
+    if (*cursor == 'i' &amp;&amp; *(cursor + 1) == 'd') {
+        cursor += 2;
+    } else if (*cursor == '(') {
+        match('(');
+        E();
+        match(')');
+    } else {
+        error_flag = 1;
+    }
+}
+
+int main(void) {
+    char input[100];
+    printf("Grammar:\n");
+    printf("E  -&gt; T E'\n");
+    printf("E' -&gt; + T E' | ε\n");
+    printf("T  -&gt; F T'\n");
+    printf("T' -&gt; * F T' | ε\n");
+    printf("F  -&gt; ( E ) | id\n\n");
+    printf("Enter expression (use 'id', '+', '*', '(', ')'): ");
+    if (scanf("%99s", input) != 1) return 1;
+
+    cursor = input;
+    E();
+
+    if (*cursor == '\0' &amp;&amp; !error_flag) {
+        printf("\nResult: String ACCEPTED\n");
+    } else {
+        printf("\nResult: String REJECTED\n");
+    }
+    return 0;
+}</code></pre>
+
+<h2>SECTION 2: LEX / FLEX PROGRAMS</h2>
+
+<h3>6. Odd or Even (oddeven.l)</h3>
+<pre><code>%{
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+%}
+
+%option noyywrap
+
+%%
+[+-]?[0-9]+ {
+    long long n = atoll(yytext);
+    if (n % 2 == 0)
+        printf("%s -&gt; EVEN\n", yytext);
+    else
+        printf("%s -&gt; ODD\n", yytext);
+}
+
+[ \t\r\n]+          ; /* ignore whitespace */
+[^0-9 \t\r\n]+      { printf("%s -&gt; INVALID NUMBER\n", yytext); }
+%%
+
+int main(void) {
+    printf("Enter numbers (Ctrl+D to exit):\n");
+    yylex();
+    return 0;
+}</code></pre>
+
+<h3>7. Number Classifier: Integer, Real, or Exponential (number_classifier.l)</h3>
+<pre><code>%{
+#include &lt;stdio.h&gt;
+%}
+
+%option noyywrap
+
+SIGN        [+-]?
+DIGITS      [0-9]+
+EXP         ([eE][+-]?{DIGITS})
+REAL1       {DIGITS}\.{DIGITS}?
+REAL2       \.{DIGITS}
+
+%%
+{SIGN}{DIGITS}{EXP}                 { printf("%-15s -&gt; EXPONENTIAL NUMBER\n", yytext); }
+{SIGN}({REAL1}|{REAL2}){EXP}        { printf("%-15s -&gt; EXPONENTIAL NUMBER\n", yytext); }
+{SIGN}({REAL1}|{REAL2})             { printf("%-15s -&gt; REAL NUMBER\n", yytext); }
+{SIGN}{DIGITS}                      { printf("%-15s -&gt; INTEGER\n", yytext); }
+
+[ \t\r\n]+                          ; /* ignore whitespace */
+[^ \t\r\n]+                         { printf("%-15s -&gt; INVALID NUMBER\n", yytext); }
+%%
+
+int main(void) {
+    printf("Enter numbers to classify (Ctrl+D to exit):\n");
+    yylex();
+    return 0;
+}</code></pre>
+
+<h3>8. PAN Card Number Format Validator (pan_validator.l)</h3>
+<pre><code>%{
+#include &lt;stdio.h&gt;
+%}
+
+%option noyywrap
+
+PAN [A-Z]{5}[0-9]{4}[A-Z]
+
+%%
+{PAN}               { printf("%s -&gt; VALID PAN FORMAT\n", yytext); }
+[a-zA-Z0-9]+        { printf("%s -&gt; INVALID PAN FORMAT\n", yytext); }
+[ \t\r\n]+          ; /* ignore whitespace */
+.                   { printf("%s -&gt; INVALID CHARACTER\n", yytext); }
+%%
+
+int main(void) {
+    printf("Enter PAN tokens (Ctrl+D to exit):\n");
+    yylex();
+    return 0;
+}</code></pre>
+
+<h3>9. Vowels or Consonants (vowels.l)</h3>
+<pre><code>%{
+#include &lt;stdio.h&gt;
+int v_count = 0, c_count = 0;
+%}
+
+%option noyywrap
+
+%%
+[aeiouAEIOU] {
+    printf("%c -&gt; VOWEL\n", yytext[0]);
+    v_count++;
+}
+
+[a-zA-Z] {
+    printf("%c -&gt; CONSONANT\n", yytext[0]);
+    c_count++;
+}
+
+[0-9]               { printf("%c -&gt; DIGIT\n", yytext[0]); }
+[ \t\r\n]+          ; /* ignore whitespace */
+.                   { printf("%c -&gt; SPECIAL CHARACTER\n", yytext[0]); }
+%%
+
+int main(void) {
+    printf("Enter text stream (Ctrl+D to exit):\n");
+    yylex();
+    printf("\nSummary: %d Vowels, %d Consonants\n", v_count, c_count);
+    return 0;
+}</code></pre>
+
+</body>
+</html>

@@ -316,9 +316,9 @@ export class PacketSimulator {
     calculateRouteFn?: (src: string, dst: string) => Promise<CalculatedRoute>
   ): Promise<void> {
     const simId = session.id;
-    const speed = Math.max(0.2, session.config.speedMultiplier || 1.0);
-    const hopBaseDelay = Math.max(15, Math.floor(120 / speed));
-    const interPacketDelay = Math.max(20, Math.floor(80 / speed));
+    const speed = Math.max(0.1, session.config.speedMultiplier || 1.0);
+    const hopBaseDelay = Math.max(60, Math.floor(550 / speed));
+    const interPacketDelay = Math.max(60, Math.floor(300 / speed));
 
     const sleep = (ms: number) => new Promise(r => setTimeout(r, Math.max(5, ms)));
 
@@ -432,19 +432,79 @@ export class PacketSimulator {
           const hopSrc = pathNodes[hIdx];
           const hopDst = pathNodes[hIdx + 1];
 
+          const linkKey = `${hopSrc.id}-${hopDst.id}`;
+          const reverseKey = `${hopDst.id}-${hopSrc.id}`;
+          const link = linkMap.get(linkKey) || linkMap.get(reverseKey);
+
+          // Check if downstream link or router is severed/offline
+          const isSevered = !link || link.status === 'SEVERED' || (this.faultParams.severedLinkIds || []).includes(link?.id || '');
+          const isOffline = hopDst.status === 'OFFLINE' || (this.faultParams.disabledNodeIds || []).includes(hopDst.id);
+
+          if (isSevered || isOffline) {
+            // Attempt Dijkstra dynamic failover rerouting from current hop
+            if (calculateRouteFn) {
+              try {
+                const rerouted = await calculateRouteFn(hopSrc.id, dstNode.id);
+                if (rerouted && rerouted.path.length >= 2) {
+                  session.route = {
+                    ...rerouted,
+                    path: [...session.route.path.slice(0, hIdx), ...rerouted.path],
+                    nodeKeys: [...session.route.nodeKeys.slice(0, hIdx), ...rerouted.nodeKeys]
+                  };
+                  pathNodes = session.route.path.map(id => nodeMap.get(id)).filter(Boolean) as NetworkNode[];
+
+                  const failoverEvent: SimulationEvent = {
+                    simulationId: simId,
+                    transactionId: session.transactionId,
+                    eventType: 'DYNAMIC_FAILOVER_TRIGGERED',
+                    sourceNodeId: hopSrc.id,
+                    destNodeId: hopDst.id,
+                    hopNumber: hIdx + 1,
+                    description: `[DYNAMIC FAILOVER] Link ${hopSrc.name} -> ${hopDst.name} is SEVERED/OFFLINE. Dijkstra dynamically rerouted in-flight packet ${pktId} via ${rerouted.nodeKeys.join(' -> ')}.`,
+                    severity: 'WARNING',
+                    timestamp: new Date().toISOString()
+                  };
+                  await this.recordAndEmitEvent(failoverEvent);
+
+                  // Recalculate with new path
+                  hIdx--;
+                  continue;
+                }
+              } catch (rerouteErr) {
+                // Unreachable
+              }
+            }
+
+            // Severed link and cannot reach destination: drop packet
+            session.packetsLost++;
+            this.metrics.packetsLost++;
+            initialPacket.status = 'LOST';
+            this.recordPacket(initialPacket);
+
+            const severedDropEvent: SimulationEvent = {
+              simulationId: simId,
+              transactionId: session.transactionId,
+              eventType: 'PACKET_LOST',
+              sourceNodeId: hopSrc.id,
+              destNodeId: hopDst.id,
+              hopNumber: hIdx + 1,
+              description: `[SEVERED LINK DROP] Frame ${pktId} dropped at ${hopSrc.name}. Link to ${hopDst.name} is SEVERED and no viable alternate Dijkstra route exists.`,
+              severity: 'ERROR',
+              timestamp: new Date().toISOString()
+            };
+            await this.recordAndEmitEvent(severedDropEvent);
+            return;
+          }
+
           // Deterministic loss for DEMO_PACKET_LOSS or probabilistic loss
           const isDemoLoss = (session.config.scenario === 'DEMO_PACKET_LOSS' || session.config.scenario === 'PACKET_LOSS') && (pIdx === 2 || pIdx === 6);
           const isRandomLost = lossRate > 0 && Math.random() < lossRate;
           const isLost = isDemoLoss || isRandomLost;
 
-          const linkKey = `${hopSrc.id}-${hopDst.id}`;
-          const reverseKey = `${hopDst.id}-${hopSrc.id}`;
-          const link = linkMap.get(linkKey) || linkMap.get(reverseKey);
           const hopLatency = link ? Math.round(link.baseLatencyMs * (this.faultParams.globalLatencyMultiplier || 1.0)) : 12;
-
           accumulatedLatency += hopLatency;
 
-          // Animate link transit progress
+          // Animate link transit progress smoothly
           for (let prog = 25; prog <= 100; prog += 25) {
             await checkState();
             initialPacket.progressPercent = prog;
@@ -656,7 +716,7 @@ export class PacketSimulator {
     let retransmissions = 0;
     let accumulatedLatency = 0;
 
-    const baseDelay = Math.max(10, Math.floor(100 / speedMultiplier));
+    const baseDelay = Math.max(50, Math.floor(500 / speedMultiplier));
     const pathNodes = route.path.map(id => nodeMap.get(id)).filter(Boolean) as NetworkNode[];
 
     if (pathNodes.length < 2) {
@@ -744,12 +804,16 @@ export class PacketSimulator {
       dstIp: dstNode.ipAddress,
       srcMac: srcNode.macAddress,
       dstMac: pathNodes[1].macAddress,
+      progressPercent: 50,
       osi: this.buildOSIData(srcNode, dstNode, srcNode, pathNodes[1], 1000, 0, 'SYN', 64, 'TCP Connection Request (SYN)', 'TCP', 64, true),
       createdAt: new Date().toISOString()
     };
     packetsSent++;
     this.recordPacket(synPacket);
     await sleep(baseDelay);
+    synPacket.status = 'DELIVERED';
+    synPacket.progressPercent = 100;
+    this.recordPacket(synPacket);
     packetsDelivered++;
 
     // SYN-ACK (Dst -> Src)
@@ -769,20 +833,24 @@ export class PacketSimulator {
       ttl: 64,
       sizeBytes: 64,
       payload: 'TCP SYN-ACK Connection Accepted',
-      status: 'DELIVERED',
+      status: 'TRANSMITTING',
       hopIndex: route.hopCount,
       totalHops: route.hopCount,
       srcIp: dstNode.ipAddress,
       dstIp: srcNode.ipAddress,
       srcMac: dstNode.macAddress,
       dstMac: srcNode.macAddress,
+      progressPercent: 50,
       osi: this.buildOSIData(dstNode, srcNode, dstNode, srcNode, 5000, 1001, 'SYN, ACK', 64, 'TCP Connection Acknowledgment (SYN-ACK)', 'TCP', 64, true),
       createdAt: new Date().toISOString()
     };
     packetsSent++;
-    packetsDelivered++;
     this.recordPacket(synAckPacket);
     await sleep(baseDelay);
+    synAckPacket.status = 'DELIVERED';
+    synAckPacket.progressPercent = 100;
+    this.recordPacket(synAckPacket);
+    packetsDelivered++;
 
     let totalBytesDelivered = 128; // 64 (SYN) + 64 (SYN-ACK)
 
@@ -796,6 +864,56 @@ export class PacketSimulator {
       const linkKey = `${hopSrc.id}-${hopDst.id}`;
       const reverseLinkKey = `${hopDst.id}-${hopSrc.id}`;
       const link = linkMap.get(linkKey) || linkMap.get(reverseLinkKey);
+
+      // Check if downstream link or router is severed/offline
+      const isSevered = !link || link.status === 'SEVERED' || (this.faultParams.severedLinkIds || []).includes(link?.id || '');
+      const isOffline = hopDst.status === 'OFFLINE' || (this.faultParams.disabledNodeIds || []).includes(hopDst.id);
+
+      if (isSevered || isOffline) {
+        packetsLost++;
+        const dropPacket: SimulationPacket = {
+          id: `PKT-${transactionId}-HOP-${i + 1}-DROPPED`,
+          simulationId: simId,
+          transactionId,
+          type: 'TXN_PAYLOAD',
+          protocol: 'TCP_EDUCATIONAL',
+          sourceNodeId: srcNode.id,
+          destNodeId: dstNode.id,
+          currentNodeId: hopSrc.id,
+          nextHopNodeId: hopDst.id,
+          sequenceNumber: seqNo,
+          ackNumber: ackNo,
+          flags: 'RST',
+          ttl: 64 - i,
+          sizeBytes: 512,
+          payload: payloadData,
+          status: 'LOST',
+          hopIndex: i,
+          totalHops: route.hopCount,
+          srcIp: srcNode.ipAddress,
+          dstIp: dstNode.ipAddress,
+          srcMac: hopSrc.macAddress,
+          dstMac: hopDst.macAddress,
+          progressPercent: 50,
+          osi: this.buildOSIData(srcNode, dstNode, hopSrc, hopDst, seqNo, ackNo, 'RST', 64 - i, `Dropped Transfer Packet`, 'TCP', 512, true),
+          createdAt: new Date().toISOString()
+        };
+        this.recordPacket(dropPacket);
+
+        const dropEvent: SimulationEvent = {
+          simulationId: simId,
+          transactionId,
+          eventType: 'PACKET_LOST',
+          sourceNodeId: hopSrc.id,
+          destNodeId: hopDst.id,
+          hopNumber: i + 1,
+          description: `[SEVERED LINK DROP] Financial payload packet dropped at ${hopSrc.name}. Downstream WAN Link to ${hopDst.name} is SEVERED.`,
+          severity: 'ERROR',
+          timestamp: new Date().toISOString()
+        };
+        await this.recordAndEmitEvent(dropEvent);
+        break;
+      }
 
       const hopLatency = link ? Math.round(link.baseLatencyMs * (this.faultParams.globalLatencyMultiplier || 1.0)) : 10;
       accumulatedLatency += hopLatency;
@@ -830,6 +948,7 @@ export class PacketSimulator {
         dstIp: dstNode.ipAddress,
         srcMac: hopSrc.macAddress,
         dstMac: hopDst.macAddress, // Layer 2 MAC rewritten per hop
+        progressPercent: 25,
         osi: this.buildOSIData(
           srcNode,
           dstNode,
@@ -848,6 +967,13 @@ export class PacketSimulator {
       };
 
       packetsSent++;
+
+      // Progress animation
+      for (let prog = 25; prog <= 100; prog += 25) {
+        dataPacket.progressPercent = prog;
+        this.recordPacket(dataPacket);
+        await sleep(Math.floor(baseDelay / 4));
+      }
 
       if (isLost) {
         packetsLost++;

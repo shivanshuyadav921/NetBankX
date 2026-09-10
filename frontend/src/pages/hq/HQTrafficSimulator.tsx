@@ -45,8 +45,13 @@ export const HQTrafficSimulator: React.FC = () => {
         const brs = await ApiClient.getBranches();
         if (brs && brs.length > 0) {
           setBranches(brs);
-          setSourceBranchId(brs[0].id);
-          setDestBranchId(brs.length > 1 ? brs[1].id : brs[0].id);
+          // Default to Inter-Regional National Backbone: Mumbai (MH) -> Bengaluru (KA)
+          const defaultSrc = brs.find((b: any) => b.code === 'MUM01' || b.id === 'MH-MUM-001') || brs[0];
+          const defaultDst = brs.find((b: any) => b.code === 'BLR01' || b.id === 'KA-BLR-001') || 
+                             brs.find((b: any) => b.region_id !== defaultSrc.region_id) || 
+                             (brs.length > 1 ? brs[1] : brs[0]);
+          setSourceBranchId(defaultSrc.id);
+          setDestBranchId(defaultDst.id);
         }
       } catch (err) {
         console.error('Error loading branches:', err);
@@ -316,6 +321,35 @@ export const HQTrafficSimulator: React.FC = () => {
             </div>
           </div>
 
+          {/* Quick National Trunk Presets Bar */}
+          <div className="space-y-1.5 font-sans">
+            <div className="text-[11px] font-bold text-luxury-textMuted uppercase tracking-wider">
+              Quick National WAN Trunk Presets (Multi-Hop Routing)
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-mono">
+              {[
+                { label: '🚀 Mumbai → Bengaluru (National 4-Hop Trunk)', srcCode: 'MUM01', dstCode: 'BLR01' },
+                { label: '🚀 Delhi → Bengaluru (North-South Trunk)', srcCode: 'NDL01', dstCode: 'BLR01' },
+                { label: '🚀 Mumbai → Delhi (West-North Trunk)', srcCode: 'MUM01', dstCode: 'NDL01' },
+                { label: '📍 Mumbai → Nagpur (Intra-State Mesh)', srcCode: 'MUM01', dstCode: 'NGP01' }
+              ].map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const src = branches.find(b => b.code === preset.srcCode);
+                    const dst = branches.find(b => b.code === preset.dstCode);
+                    if (src) setSourceBranchId(src.id);
+                    if (dst) setDestBranchId(dst.id);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-luxury-subtle hover:bg-luxury-surfaceHover border border-luxury-borderSubtle text-luxury-textSecondary hover:text-luxury-text text-[11px] transition-colors"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Form Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
             {/* Source Branch */}
@@ -327,11 +361,27 @@ export const HQTrafficSimulator: React.FC = () => {
                 disabled={isRunning}
                 className="w-full p-2.5 rounded-lg bg-luxury-surfaceControl border border-luxury-border text-luxury-text focus:border-luxury-slate outline-none disabled:opacity-50"
               >
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
+                <optgroup label="📍 Maharashtra Region (MH)">
+                  {branches.filter(b => b.region_id === 'MH' || b.id.startsWith('MH')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="📍 Delhi NCR Region (DL)">
+                  {branches.filter(b => b.region_id === 'DL' || b.id.startsWith('DL')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="📍 Karnataka Region (KA)">
+                  {branches.filter(b => b.region_id === 'KA' || b.id.startsWith('KA')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -344,11 +394,27 @@ export const HQTrafficSimulator: React.FC = () => {
                 disabled={isRunning}
                 className="w-full p-2.5 rounded-lg bg-luxury-surfaceControl border border-luxury-border text-luxury-text focus:border-luxury-slate outline-none disabled:opacity-50"
               >
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
+                <optgroup label="📍 Karnataka Region (KA)">
+                  {branches.filter(b => b.region_id === 'KA' || b.id.startsWith('KA')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="📍 Delhi NCR Region (DL)">
+                  {branches.filter(b => b.region_id === 'DL' || b.id.startsWith('DL')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="📍 Maharashtra Region (MH)">
+                  {branches.filter(b => b.region_id === 'MH' || b.id.startsWith('MH')).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -397,11 +463,11 @@ export const HQTrafficSimulator: React.FC = () => {
                   onChange={e => setSpeedMultiplier(parseFloat(e.target.value))}
                   className="flex-1 p-2.5 rounded-lg bg-luxury-surfaceControl border border-luxury-border text-luxury-text focus:border-luxury-slate outline-none font-bold"
                 >
-                  <option value={0.5}>0.5x Speed</option>
+                  <option value={0.25}>0.25x Ultra Slow</option>
+                  <option value={0.5}>0.5x Slow Motion</option>
                   <option value={1.0}>1.0x Normal</option>
                   <option value={2.0}>2.0x Fast</option>
                   <option value={5.0}>5.0x High</option>
-                  <option value={10.0}>10.0x Max</option>
                 </select>
               </div>
             </div>
@@ -447,20 +513,26 @@ export const HQTrafficSimulator: React.FC = () => {
           <div className="p-3 rounded-lg bg-luxury-surfaceControl border border-luxury-border flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs text-luxury-textSecondary">
               <Flame className="w-4 h-4 text-luxury-amber" />
-              <span><strong>Live Mid-Flight Impairment Actions:</strong> Toggle router status or sever links while packets are in transit to observe instant Dijkstra recalculation:</span>
+              <span><strong>Live Fault Impairment & Failover Lab:</strong> Toggle router status or sever links to demonstrate instant Dijkstra path recalculation:</span>
             </div>
-            <div className="flex items-center gap-2 font-sans">
+            <div className="flex items-center gap-2 font-sans flex-wrap">
               <button
                 onClick={handleFailHQCore}
                 className="px-3 py-1.5 rounded bg-luxury-burgundyBg border border-luxury-burgundyBorder text-luxury-burgundy hover:bg-luxury-burgundy hover:text-white text-xs font-semibold transition-colors"
               >
-                Toggle HQ Core Failure
+                🚫 Toggle HQ Core Router
               </button>
               <button
                 onClick={handleSeverLink}
                 className="px-3 py-1.5 rounded bg-luxury-amberBg border border-luxury-amberBorder text-luxury-amber hover:bg-luxury-amber hover:text-white text-xs font-semibold transition-colors"
               >
-                Sever Active WAN Link
+                ✂️ Sever Active WAN Link
+              </button>
+              <button
+                onClick={handleResetTopology}
+                className="px-3 py-1.5 rounded bg-luxury-forestBg border border-luxury-forestBorder text-luxury-forest hover:bg-luxury-forest hover:text-white text-xs font-semibold transition-colors"
+              >
+                🔗 Reconnect All Links (Reset)
               </button>
             </div>
           </div>
@@ -488,6 +560,7 @@ export const HQTrafficSimulator: React.FC = () => {
             highlightPath={calculatedRoute?.path}
             packets={packets}
             onSelectPacket={pkt => setSelectedPacket(pkt)}
+            onPacketSelect={pkt => setSelectedPacket(pkt)}
             selectedPacketId={selectedPacket?.id}
           />
         </div>

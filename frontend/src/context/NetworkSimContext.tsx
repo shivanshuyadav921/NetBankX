@@ -81,8 +81,14 @@ export const NetworkSimProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     const handleTopology = (data: { nodes: NetworkNode[]; links: NetworkLink[] }) => {
-      if (data.nodes) setNodes(data.nodes);
-      if (data.links) setLinks(data.links);
+      if (data.nodes) {
+        setNodes(data.nodes);
+        setSelectedNode(prev => prev ? (data.nodes.find(n => n.id === prev.id) || prev) : null);
+      }
+      if (data.links) {
+        setLinks(data.links);
+        setSelectedLink(prev => prev ? (data.links.find(l => l.id === prev.id) || prev) : null);
+      }
     };
 
     socket.on('simulation:event', handleEvent);
@@ -123,12 +129,14 @@ export const NetworkSimProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const toggleNodeStatus = async (nodeId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'OFFLINE' ? 'HEALTHY' : 'OFFLINE';
+    setSelectedNode(prev => prev && prev.id === nodeId ? { ...prev, status: nextStatus as any } : prev);
     await ApiClient.setNodeStatus(nodeId, nextStatus as any);
     await refreshTopology();
   };
 
   const toggleLinkStatus = async (linkId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'SEVERED' ? 'ACTIVE' : 'SEVERED';
+    setSelectedLink(prev => prev && prev.id === linkId ? { ...prev, status: nextStatus as any } : prev);
     await ApiClient.setLinkStatus(linkId, nextStatus as any);
     await refreshTopology();
   };

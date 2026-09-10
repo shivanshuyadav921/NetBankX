@@ -30,7 +30,7 @@ export const TransactionPacketJourneyPage: React.FC = () => {
   const [selectedPacket, setSelectedPacket] = useState<SimulationPacket | null>(null);
   const [activePackets, setActivePackets] = useState<SimulationPacket[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
-  const [speed] = useState<number>(1);
+  const [speed, setSpeed] = useState<number>(0.5);
 
   // Load journey data from backend
   const fetchJourney = async () => {
@@ -205,7 +205,30 @@ export const TransactionPacketJourneyPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Speed Controller */}
+            <div className="flex items-center bg-luxury-surface border border-luxury-border rounded-lg p-1 text-xs font-mono">
+              <span className="text-[10px] text-luxury-textMuted px-2 font-sans font-semibold">Speed:</span>
+              {[
+                { label: '0.25x Slow', val: 0.25 },
+                { label: '0.5x', val: 0.5 },
+                { label: '1.0x', val: 1.0 },
+                { label: '2.0x Fast', val: 2.0 }
+              ].map(s => (
+                <button
+                  key={s.val}
+                  onClick={() => setSpeed(s.val)}
+                  className={`px-2 py-1 rounded text-[11px] font-bold transition-colors ${
+                    speed === s.val
+                      ? 'bg-luxury-slate text-white shadow-luxury-sm'
+                      : 'text-luxury-textSecondary hover:text-luxury-text hover:bg-luxury-surfaceHover'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={handleReplay}
               className="px-3.5 py-2 rounded-lg bg-luxury-slate hover:bg-luxury-slateHover text-white text-xs font-bold flex items-center gap-1.5 shadow-luxury-sm transition-all"
@@ -218,7 +241,7 @@ export const TransactionPacketJourneyPage: React.FC = () => {
               className="px-3.5 py-2 rounded-lg bg-luxury-surface hover:bg-luxury-surfaceHover border border-luxury-border text-luxury-textSecondary hover:text-luxury-text text-xs font-bold flex items-center gap-1.5 transition-all"
             >
               <Network className="w-3.5 h-3.5 text-luxury-leather" />
-              <span>Open Network Lab Simulator</span>
+              <span>Open Network Lab</span>
             </Link>
           </div>
         </div>

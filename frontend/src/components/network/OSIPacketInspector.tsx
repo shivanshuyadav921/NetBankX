@@ -1,156 +1,269 @@
 import React, { useState } from 'react';
 import { SimulationPacket } from '../../types';
-import { Layers, ShieldCheck, Cpu, Network, HardDrive, Radio, Binary, ChevronDown, ChevronUp } from 'lucide-react';
+import { Layers, ShieldCheck, Cpu, Network, HardDrive, Radio, Binary, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 
 interface OSIPacketInspectorProps {
   packet: SimulationPacket | null;
   onClose?: () => void;
+  title?: string;
 }
 
-export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, onClose }) => {
-  const [expandedLayer, setExpandedLayer] = useState<number | null>(null);
+export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, onClose, title }) => {
+  // Default all 7 layers to EXPANDED so the inspector is never empty
+  const [expandedLayers, setExpandedLayers] = useState<Set<number>>(new Set([7, 6, 5, 4, 3, 2, 1]));
 
-  if (!packet) {
-    return (
-      <div className="luxury-card p-6 text-center text-luxury-textMuted">
-        <Radio className="w-8 h-8 mx-auto mb-2 opacity-40 animate-pulse text-luxury-slate" />
-        <div className="text-sm font-semibold text-luxury-text">OSI Encapsulation Inspector Idle</div>
-        <div className="text-xs text-luxury-textMuted mt-1">
-          Click any traveling packet in the topology or initiate a transfer to inspect real-time frame headers & 7-layer encapsulation.
-        </div>
-      </div>
-    );
-  }
+  const isMockPacket = !packet;
 
-  const osi = packet.osi || {
+  const currentPacket: SimulationPacket = packet || {
+    id: 'PKT-TX-TRANSFER-HOP01',
+    simulationId: 'SIM-PREVIEW',
+    transactionId: 'TX-10042',
+    type: 'TXN_PAYLOAD',
+    protocol: 'TCP_EDUCATIONAL',
+    sourceNodeId: 'NODE-BR-MH01',
+    destNodeId: 'NODE-BR-KA01',
+    currentNodeId: 'NODE-MH-HUB',
+    nextHopNodeId: 'NODE-HQ-CORE',
+    sequenceNumber: 1001,
+    ackNumber: 5001,
+    flags: 'PSH, ACK',
+    ttl: 63,
+    sizeBytes: 512,
+    payload: '{"type":"TRANSFER","amount":10000,"currency":"INR","src":"ACC-100001","dst":"ACC-100003"}',
+    status: 'TRANSMITTING',
+    hopIndex: 1,
+    totalHops: 4,
+    srcIp: '10.1.1.1',
+    dstIp: '10.3.1.1',
+    srcMac: '02:42:0a:01:01:02',
+    dstMac: '02:42:0c:00:00:01',
+    progressPercent: 75,
+    createdAt: new Date().toISOString()
+  };
+
+  const osi = currentPacket.osi || {
     layer7_application: {
       protocol: 'HTTPS (HTTP/2.0 over TLS 1.3)',
-      payloadSummary: packet.payload || 'Banking Payload Data',
-      dataSizeBytes: packet.sizeBytes || 512,
-      securityContext: 'Mutual TLS (mTLS) Verified · AES-256-GCM'
+      payloadSummary: currentPacket.payload || '{"type":"TRANSFER","amount":10000,"src":"ACC-100001","dst":"ACC-100003"}',
+      dataSizeBytes: currentPacket.sizeBytes || 512,
+      securityContext: 'Mutual TLS (mTLS) Verified · AES-256-GCM · Signature Valid'
     },
     layer6_presentation: {
       encoding: 'JSON / UTF-8',
       encryption: 'TLS 1.3 (Cipher: TLS_AES_256_GCM_SHA384)',
-      compression: 'gzip (rfc1952)'
+      compression: 'gzip (RFC 1952 deflate)'
     },
     layer5_session: {
-      sessionId: `SESS-${packet.id.slice(-6)}`,
-      dialogControl: 'Full-Duplex Synchronous State',
+      sessionId: `SESS-NBX-${currentPacket.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`,
+      dialogControl: 'Full-Duplex Synchronous Session State',
       state: 'ESTABLISHED / AUTHENTICATED'
     },
     layer4_transport: {
-      protocol: packet.protocol === 'UDP' ? 'UDP' : 'TCP',
-      srcPort: packet.srcPort || 49152,
-      dstPort: packet.dstPort || 443,
-      sequenceNumber: packet.sequenceNumber,
-      ackNumber: packet.ackNumber,
-      flags: packet.flags || 'PSH, ACK',
+      protocol: currentPacket.protocol === 'UDP' ? 'UDP' : 'TCP',
+      srcPort: currentPacket.srcPort || 54128,
+      dstPort: currentPacket.dstPort || 443,
+      sequenceNumber: currentPacket.sequenceNumber || 1001,
+      ackNumber: currentPacket.ackNumber || 5001,
+      flags: currentPacket.flags || 'PSH, ACK',
       windowSize: 65535
     },
     layer3_network: {
-      protocol: 'IPv4',
-      srcIp: packet.srcIp,
-      dstIp: packet.dstIp,
-      ttl: packet.ttl,
+      protocol: 'IPv4 (RFC 791)',
+      srcIp: currentPacket.srcIp || '10.1.1.1',
+      dstIp: currentPacket.dstIp || '10.3.1.1',
+      ttl: currentPacket.ttl || 63,
       headerLengthBytes: 20,
-      packetSizeBytes: (packet.sizeBytes || 512) + 40
+      packetSizeBytes: (currentPacket.sizeBytes || 512) + 40
     },
     layer2_datalink: {
-      protocol: 'Ethernet II',
-      srcMac: packet.srcMac,
-      dstMac: packet.dstMac,
-      hopRewrite: packet.hopIndex > 0,
-      fcs: '0x3F89A12B'
+      protocol: 'IEEE 802.3 / Ethernet II',
+      srcMac: currentPacket.srcMac || '02:42:0a:01:01:02',
+      dstMac: currentPacket.dstMac || '02:42:0c:00:00:01',
+      hopRewrite: currentPacket.hopIndex > 0,
+      fcs: '0x3F89A12B (CRC-32 Valid)'
     },
     layer1_physical: {
-      medium: '10G / 100G Carrier Ethernet & Optical Fiber (DWDM)',
-      bitRateMbps: 10000,
-      signalType: 'NRZ Optical Laser Pulse (850nm)'
+      medium: '100G Optical Fiber (DWDM) / 10G Carrier Ethernet WAN',
+      bitRateMbps: 100000,
+      signalType: 'NRZ Optical Laser Pulse (850nm / Single-Mode Fiber)'
     }
   };
 
   const toggleLayer = (layerNum: number) => {
-    setExpandedLayer(prev => (prev === layerNum ? null : layerNum));
+    setExpandedLayers(prev => {
+      const next = new Set(prev);
+      if (next.has(layerNum)) {
+        next.delete(layerNum);
+      } else {
+        next.add(layerNum);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllLayers = () => {
+    if (expandedLayers.size > 0) {
+      setExpandedLayers(new Set());
+    } else {
+      setExpandedLayers(new Set([7, 6, 5, 4, 3, 2, 1]));
+    }
   };
 
   const layers = [
     {
       num: 7,
       name: 'Application Layer',
+      shortTag: 'L7 APP',
       icon: <Cpu className="w-4 h-4 text-luxury-slate" />,
       accent: 'border-l-luxury-slate',
+      badgeColor: 'bg-luxury-slateLight text-luxury-slate border-luxury-slate',
       summary: `${osi.layer7_application.protocol} · Payload: ${osi.layer7_application.dataSizeBytes}B`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Protocol:</span><span className="font-mono text-luxury-text font-bold">{osi.layer7_application.protocol}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Payload Summary:</span><span className="font-mono text-luxury-leather font-medium">{osi.layer7_application.payloadSummary}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Security Context:</span><span className="font-mono text-luxury-forest font-semibold">{osi.layer7_application.securityContext}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Data Size:</span><span className="font-mono text-luxury-text">{osi.layer7_application.dataSizeBytes} bytes</span></div>
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Application Protocol:</span>
+            <span className="font-mono text-luxury-text font-bold">{osi.layer7_application.protocol}</span>
+          </div>
+          <div className="flex justify-between items-start py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">JSON Payload Data:</span>
+            <span className="font-mono text-luxury-leather font-medium max-w-md text-right break-all bg-luxury-bg p-1.5 rounded border border-luxury-borderSubtle">
+              {osi.layer7_application.payloadSummary}
+            </span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Security Context:</span>
+            <span className="font-mono text-luxury-forest font-semibold">{osi.layer7_application.securityContext}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Payload Size:</span>
+            <span className="font-mono text-luxury-text">{osi.layer7_application.dataSizeBytes} bytes</span>
+          </div>
         </div>
       )
     },
     {
       num: 6,
       name: 'Presentation Layer',
+      shortTag: 'L6 PRES',
       icon: <ShieldCheck className="w-4 h-4 text-luxury-forest" />,
       accent: 'border-l-luxury-forest',
+      badgeColor: 'bg-luxury-forestBg text-luxury-forest border-luxury-forestBorder',
       summary: `${osi.layer6_presentation.encryption} · Encoding: ${osi.layer6_presentation.encoding}`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Cipher Suite:</span><span className="font-mono text-luxury-forest font-bold">{osi.layer6_presentation.encryption}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Data Encoding:</span><span className="font-mono text-luxury-text">{osi.layer6_presentation.encoding}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Compression:</span><span className="font-mono text-luxury-text">{osi.layer6_presentation.compression || 'None'}</span></div>
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Cipher Suite:</span>
+            <span className="font-mono text-luxury-forest font-bold">{osi.layer6_presentation.encryption}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Serialization / Encoding:</span>
+            <span className="font-mono text-luxury-text">{osi.layer6_presentation.encoding}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Compression Stream:</span>
+            <span className="font-mono text-luxury-text">{osi.layer6_presentation.compression || 'gzip (rfc1952)'}</span>
+          </div>
         </div>
       )
     },
     {
       num: 5,
       name: 'Session Layer',
+      shortTag: 'L5 SESS',
       icon: <HardDrive className="w-4 h-4 text-luxury-leather" />,
       accent: 'border-l-luxury-leather',
+      badgeColor: 'bg-luxury-subtle text-luxury-leather border-luxury-borderSubtle',
       summary: `${osi.layer5_session.dialogControl} · ${osi.layer5_session.state}`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Session ID:</span><span className="font-mono text-luxury-text font-bold">{osi.layer5_session.sessionId}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Dialog Control:</span><span className="font-mono text-luxury-text">{osi.layer5_session.dialogControl}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Session State:</span><span className="font-mono text-luxury-forest font-semibold">{osi.layer5_session.state}</span></div>
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">mTLS Session ID:</span>
+            <span className="font-mono text-luxury-text font-bold">{osi.layer5_session.sessionId}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Dialog Control:</span>
+            <span className="font-mono text-luxury-text">{osi.layer5_session.dialogControl}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Session Lifecycle State:</span>
+            <span className="font-mono text-luxury-forest font-semibold">{osi.layer5_session.state}</span>
+          </div>
         </div>
       )
     },
     {
       num: 4,
       name: 'Transport Layer',
+      shortTag: 'L4 TRANS',
       icon: <Network className="w-4 h-4 text-luxury-teal" />,
       accent: 'border-l-luxury-teal',
-      summary: `${osi.layer4_transport.protocol} · Src Port ${osi.layer4_transport.srcPort} → Dst Port ${osi.layer4_transport.dstPort} [${osi.layer4_transport.flags}]`,
+      badgeColor: 'bg-luxury-slateLight text-luxury-slate border-luxury-slate',
+      summary: `${osi.layer4_transport.protocol} · Port ${osi.layer4_transport.srcPort} → ${osi.layer4_transport.dstPort} [${osi.layer4_transport.flags}]`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Protocol:</span><span className="font-mono text-luxury-slate font-bold">{osi.layer4_transport.protocol} (Reliable Byte-Stream)</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Source Port:</span><span className="font-mono text-luxury-text font-bold">{osi.layer4_transport.srcPort} (Ephemeral Client)</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Destination Port:</span><span className="font-mono text-luxury-text font-bold">{osi.layer4_transport.dstPort} (HTTPS Service)</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Sequence Number:</span><span className="font-mono text-luxury-leather font-bold">{osi.layer4_transport.sequenceNumber}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Acknowledgment Number:</span><span className="font-mono text-luxury-forest font-bold">{osi.layer4_transport.ackNumber}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">TCP Control Flags:</span><span className="font-mono text-luxury-burgundy font-bold">{osi.layer4_transport.flags}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Receive Window Size:</span><span className="font-mono text-luxury-text">{osi.layer4_transport.windowSize.toLocaleString()} bytes</span></div>
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Transport Protocol:</span>
+            <span className="font-mono text-luxury-slate font-bold">{osi.layer4_transport.protocol} (Reliable Full-Duplex Byte-Stream)</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Source Port (Client):</span>
+            <span className="font-mono text-luxury-text font-bold">{osi.layer4_transport.srcPort}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Destination Port (Service):</span>
+            <span className="font-mono text-luxury-text font-bold">{osi.layer4_transport.dstPort} (HTTPS/REST)</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Sequence Number (Seq):</span>
+            <span className="font-mono text-luxury-leather font-bold">{osi.layer4_transport.sequenceNumber}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Acknowledgment Number (Ack):</span>
+            <span className="font-mono text-luxury-forest font-bold">{osi.layer4_transport.ackNumber}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">TCP Control Flags:</span>
+            <span className="font-mono text-luxury-burgundy font-bold">{osi.layer4_transport.flags}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Receive Window Size:</span>
+            <span className="font-mono text-luxury-text">{osi.layer4_transport.windowSize.toLocaleString()} bytes</span>
+          </div>
         </div>
       )
     },
     {
       num: 3,
       name: 'Network Layer',
+      shortTag: 'L3 NET',
       icon: <Layers className="w-4 h-4 text-luxury-amber" />,
       accent: 'border-l-luxury-amber',
+      badgeColor: 'bg-luxury-amberBg text-luxury-amber border-luxury-amberBorder',
       summary: `IPv4 · ${osi.layer3_network.srcIp} → ${osi.layer3_network.dstIp} · TTL: ${osi.layer3_network.ttl}`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Protocol:</span><span className="font-mono text-luxury-text font-bold">IPv4 (RFC 791)</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Source IP (End-to-End):</span><span className="font-mono text-luxury-forest font-bold">{osi.layer3_network.srcIp}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Destination IP (End-to-End):</span><span className="font-mono text-luxury-slate font-bold">{osi.layer3_network.dstIp}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Time to Live (TTL):</span><span className="font-mono text-luxury-amber font-bold">{osi.layer3_network.ttl} hops</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Total Packet Size:</span><span className="font-mono text-luxury-text">{osi.layer3_network.packetSizeBytes} bytes (Header: 20B)</span></div>
-          <div className="mt-2 p-2 rounded bg-luxury-bg border border-luxury-borderSubtle text-[11px] text-luxury-textMuted font-sans">
-            💡 <strong>Routing Principle:</strong> Layer 3 IP addressing remains constant across the entire end-to-end WAN path, guiding routers at each Dijkstra hop.
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Network Protocol:</span>
+            <span className="font-mono text-luxury-text font-bold">IPv4 (RFC 791)</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Source IP (End-to-End):</span>
+            <span className="font-mono text-luxury-forest font-bold">{osi.layer3_network.srcIp}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Destination IP (End-to-End):</span>
+            <span className="font-mono text-luxury-slate font-bold">{osi.layer3_network.dstIp}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Time to Live (TTL):</span>
+            <span className="font-mono text-luxury-amber font-bold">{osi.layer3_network.ttl} hops</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Total Packet Size (Headers + Data):</span>
+            <span className="font-mono text-luxury-text">{osi.layer3_network.packetSizeBytes} bytes</span>
+          </div>
+          <div className="p-2.5 rounded bg-luxury-bg border border-luxury-borderSubtle text-[11px] text-luxury-textMuted font-sans">
+            💡 <strong>Routing Principle:</strong> End-to-end Layer 3 IP addresses remain constant across the entire WAN path, driving Dijkstra hop routing decisions.
           </div>
         </div>
       )
@@ -158,18 +271,35 @@ export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, 
     {
       num: 2,
       name: 'Data Link Layer',
+      shortTag: 'L2 LINK',
       icon: <Binary className="w-4 h-4 text-luxury-slateSubtle" />,
       accent: 'border-l-luxury-slateSubtle',
+      badgeColor: 'bg-luxury-subtle text-luxury-textSecondary border-luxury-borderSubtle',
       summary: `Ethernet II · Hop MAC: ${osi.layer2_datalink.srcMac} → ${osi.layer2_datalink.dstMac}`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Framing Standard:</span><span className="font-mono text-luxury-text font-bold">IEEE 802.3 / Ethernet II</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Current Hop Source MAC:</span><span className="font-mono text-luxury-text">{osi.layer2_datalink.srcMac}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Next Hop Destination MAC:</span><span className="font-mono text-luxury-text">{osi.layer2_datalink.dstMac}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Layer 2 MAC Rewrite:</span><span className="font-mono text-luxury-forest font-semibold">{osi.layer2_datalink.hopRewrite ? '✓ Rewritten by Router Interface' : '○ Initial Source Frame'}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Frame Check Sequence (FCS):</span><span className="font-mono text-luxury-text">{osi.layer2_datalink.fcs} (CRC-32 Valid)</span></div>
-          <div className="mt-2 p-2 rounded bg-luxury-bg border border-luxury-borderSubtle text-[11px] text-luxury-textMuted font-sans">
-            💡 <strong>Educational Notice:</strong> Unlike Layer 3 IP, Layer 2 MAC addresses are <em>rewritten at each router interface hop</em> as the frame traverses individual physical links.
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Framing Standard:</span>
+            <span className="font-mono text-luxury-text font-bold">IEEE 802.3 / Ethernet II</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Current Hop Source MAC:</span>
+            <span className="font-mono text-luxury-text font-semibold">{osi.layer2_datalink.srcMac}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Next Hop Destination MAC:</span>
+            <span className="font-mono text-luxury-text font-semibold">{osi.layer2_datalink.dstMac}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Layer 2 MAC Rewrite:</span>
+            <span className="font-mono text-luxury-forest font-semibold">{osi.layer2_datalink.hopRewrite ? '✓ Rewritten by Router Interface' : '○ Initial Source Frame'}</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Frame Check Sequence (FCS):</span>
+            <span className="font-mono text-luxury-text">{osi.layer2_datalink.fcs} (CRC-32 Valid)</span>
+          </div>
+          <div className="p-2.5 rounded bg-luxury-bg border border-luxury-borderSubtle text-[11px] text-luxury-textMuted font-sans">
+            💡 <strong>Educational Notice:</strong> Unlike Layer 3 IP, Layer 2 MAC addresses are <em>rewritten at every router hop</em> as the frame traverses physical link segments.
           </div>
         </div>
       )
@@ -177,14 +307,25 @@ export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, 
     {
       num: 1,
       name: 'Physical Layer',
+      shortTag: 'L1 PHYS',
       icon: <Radio className="w-4 h-4 text-luxury-textMuted" />,
       accent: 'border-l-luxury-textMuted',
+      badgeColor: 'bg-luxury-subtle text-luxury-textMuted border-luxury-borderSubtle',
       summary: `${osi.layer1_physical.medium} · ${(osi.layer1_physical.bitRateMbps / 1000).toFixed(0)} Gbps`,
       details: (
-        <div className="space-y-1.5 text-xs text-luxury-textSecondary">
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Transmission Medium:</span><span className="font-mono text-luxury-text">{osi.layer1_physical.medium}</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Link Bandwidth:</span><span className="font-mono text-luxury-forest font-bold">{osi.layer1_physical.bitRateMbps.toLocaleString()} Mbps</span></div>
-          <div className="flex justify-between"><span className="text-luxury-textMuted">Physical Encoding:</span><span className="font-mono text-luxury-text">{osi.layer1_physical.signalType}</span></div>
+        <div className="space-y-2 text-xs text-luxury-textSecondary">
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Transmission Medium:</span>
+            <span className="font-mono text-luxury-text">{osi.layer1_physical.medium}</span>
+          </div>
+          <div className="flex justify-between items-center py-1 border-b border-luxury-borderSubtle">
+            <span className="text-luxury-textMuted">Link Bandwidth:</span>
+            <span className="font-mono text-luxury-forest font-bold">{osi.layer1_physical.bitRateMbps.toLocaleString()} Mbps</span>
+          </div>
+          <div className="flex justify-between items-center py-1">
+            <span className="text-luxury-textMuted">Physical Signaling:</span>
+            <span className="font-mono text-luxury-text">{osi.layer1_physical.signalType}</span>
+          </div>
         </div>
       )
     }
@@ -192,69 +333,90 @@ export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, 
 
   return (
     <div className="luxury-card p-5 space-y-4">
-      <div className="flex items-center justify-between border-b border-luxury-border pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-luxury-subtle border border-luxury-border text-luxury-slate">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-luxury-border pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-luxury-slateLight border border-luxury-borderSubtle text-luxury-slate">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-luxury-text text-sm font-mono">
-                {packet.id}
+                {title || currentPacket.id}
               </h3>
               <span className="px-2 py-0.5 rounded bg-luxury-surfaceControl border border-luxury-borderStrong text-luxury-leather font-mono text-[10px] font-bold">
-                {packet.type}
+                {currentPacket.type}
               </span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                packet.status === 'DELIVERED' ? 'bg-luxury-successBg text-luxury-forest border border-luxury-successBorder' :
-                packet.status === 'LOST' ? 'bg-luxury-burgundyBg text-luxury-burgundy border border-luxury-burgundyBorder' :
-                packet.status === 'RETRANSMITTED' ? 'bg-luxury-amberBg text-luxury-amber border border-luxury-amberBorder' :
-                'bg-luxury-surfaceControl text-luxury-slate border border-luxury-border'
+                currentPacket.status === 'DELIVERED' ? 'bg-luxury-forestBg text-luxury-forest border border-luxury-forestBorder' :
+                currentPacket.status === 'LOST' ? 'bg-luxury-burgundyBg text-luxury-burgundy border border-luxury-burgundyBorder' :
+                currentPacket.status === 'RETRANSMITTED' ? 'bg-luxury-amberBg text-luxury-amber border border-luxury-amberBorder' :
+                'bg-luxury-slateLight text-luxury-slate border border-luxury-slate'
               }`}>
-                {packet.status}
+                {currentPacket.status}
               </span>
+              {isMockPacket && (
+                <span className="px-2 py-0.5 rounded bg-luxury-amberBg text-luxury-amber border border-luxury-amberBorder text-[10px] font-mono font-bold">
+                  Active Topology Frame View
+                </span>
+              )}
             </div>
             <p className="text-xs text-luxury-textMuted font-mono mt-0.5">
-              Hop #{packet.hopIndex + 1}/{packet.totalHops} · Protocol: {packet.protocol} · Seq: {packet.sequenceNumber} · ACK: {packet.ackNumber}
+              Hop #{currentPacket.hopIndex + 1}/{currentPacket.totalHops} · Protocol: {currentPacket.protocol} · Seq: {currentPacket.sequenceNumber} · ACK: {currentPacket.ackNumber}
             </p>
           </div>
         </div>
-        {onClose && (
+
+        <div className="flex items-center gap-2">
           <button
-            onClick={onClose}
-            className="text-xs text-luxury-textMuted hover:text-luxury-text px-2 py-1 rounded bg-luxury-subtle hover:bg-luxury-surfaceHover"
+            onClick={toggleAllLayers}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-luxury-surface border border-luxury-border text-luxury-textSecondary hover:text-luxury-text hover:bg-luxury-surfaceHover transition-colors"
           >
-            ✕ Close
+            <ChevronsUpDown className="w-3.5 h-3.5" />
+            <span>{expandedLayers.size > 0 ? 'Collapse All' : 'Expand All Layers'}</span>
           </button>
-        )}
-      </div>
-
-      {/* Dual Traffic Paradigm Callout */}
-      <div className="p-3 rounded-lg bg-luxury-surfaceControl border border-luxury-border text-xs">
-        <div className="flex items-center justify-between font-mono text-[11px] mb-1">
-          <span className="text-luxury-slate font-bold">🌐 LAYER DISTINCTION</span>
-          <span className="text-luxury-textMuted">Enterprise Educational Twin</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-luxury-textSecondary">
-          <div className="p-2 rounded bg-luxury-bg border border-luxury-borderSubtle">
-            <span className="text-luxury-leather font-semibold block mb-0.5">REAL APPLICATION TRAFFIC</span>
-            <span className="text-luxury-textMuted">Chrome Browser → HTTPS API → Backend Ledger DB</span>
-          </div>
-          <div className="p-2 rounded bg-luxury-bg border border-luxury-borderSubtle">
-            <span className="text-luxury-forest font-semibold block mb-0.5">SIMULATED NETWORK TRAFFIC</span>
-            <span className="text-luxury-textMuted">Branch Router → Gateway Hub → HQ Core → WAN Hops</span>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-xs text-luxury-textMuted hover:text-luxury-text px-2.5 py-1.5 rounded-lg bg-luxury-subtle hover:bg-luxury-surfaceHover"
+            >
+              ✕ Close
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 7-Layer OSI Encapsulation Stack */}
+      {/* Interactive 7-Layer OSI Stack Diagram Header */}
+      <div className="p-3 rounded-lg bg-luxury-subtle border border-luxury-borderSubtle">
+        <div className="text-[10px] font-mono uppercase tracking-wider text-luxury-textMuted font-bold mb-2 flex items-center justify-between">
+          <span>7-Layer OSI Encapsulation Flow (Application → Physical)</span>
+          <span className="text-luxury-slate">Click layer badge to toggle</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 font-mono text-[10px]">
+          {layers.map(layer => {
+            const isOpen = expandedLayers.has(layer.num);
+            return (
+              <button
+                key={layer.num}
+                onClick={() => toggleLayer(layer.num)}
+                className={`p-2 rounded border text-center transition-all ${
+                  isOpen
+                    ? `${layer.badgeColor} shadow-luxury-sm font-bold scale-[1.02]`
+                    : 'bg-luxury-bg border-luxury-borderSubtle text-luxury-textMuted hover:text-luxury-text'
+                }`}
+              >
+                <div className="font-bold">{layer.shortTag}</div>
+                <div className="text-[9px] truncate opacity-90">{layer.name.replace(' Layer', '')}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 7-Layer Detailed Breakdown Accordion */}
       <div className="space-y-2 font-sans">
-        <div className="text-xs font-mono uppercase tracking-wider text-luxury-textMuted font-bold px-1">
-          7-Layer OSI Stack Encapsulation Breakdown
-        </div>
-
         {layers.map(layer => {
-          const isExpanded = expandedLayer === layer.num;
+          const isExpanded = expandedLayers.has(layer.num);
 
           return (
             <div
@@ -265,25 +427,25 @@ export const OSIPacketInspector: React.FC<OSIPacketInspectorProps> = ({ packet, 
                 onClick={() => toggleLayer(layer.num)}
                 className="w-full p-3 flex items-center justify-between text-left hover:bg-luxury-surfaceHover transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div className="font-mono text-xs font-bold text-luxury-textMuted w-16">
+                <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                  <div className="font-mono text-xs font-bold text-luxury-textMuted shrink-0 w-16">
                     Layer {layer.num}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {layer.icon}
                     <span className="text-xs font-bold text-luxury-text">{layer.name}</span>
                   </div>
-                  <span className="text-[11px] text-luxury-textSecondary font-mono hidden md:inline truncate max-w-xs">
-                    {layer.summary}
+                  <span className="text-[11px] text-luxury-textSecondary font-mono hidden md:inline truncate">
+                    — {layer.summary}
                   </span>
                 </div>
-                <div className="text-luxury-textMuted">
+                <div className="text-luxury-textMuted shrink-0">
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </div>
               </button>
 
               {isExpanded && (
-                <div className="p-4 bg-luxury-subtle border-t border-luxury-borderSubtle">
+                <div className="p-4 bg-luxury-subtle border-t border-luxury-borderSubtle animate-fadeIn">
                   {layer.details}
                 </div>
               )}
