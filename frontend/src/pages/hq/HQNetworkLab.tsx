@@ -37,11 +37,15 @@ export const HQNetworkLab: React.FC = () => {
           </div>
           <div className="luxury-card p-4">
             <span className="text-luxury-textMuted block text-[10px] uppercase">Average RTT</span>
-            <div className="text-xl font-bold text-luxury-slate mt-1">{metrics?.averageRttMs || 36} ms</div>
+            <div className="text-xl font-bold text-luxury-slate mt-1">
+              {metrics && typeof metrics.averageRttMs === 'number' ? `${metrics.averageRttMs} ms` : '0 ms'}
+            </div>
           </div>
           <div className="luxury-card p-4">
             <span className="text-luxury-textMuted block text-[10px] uppercase">WAN Throughput</span>
-            <div className="text-xl font-bold text-luxury-teal mt-1">{metrics?.throughputKbps || 840} Kbps</div>
+            <div className="text-xl font-bold text-luxury-teal mt-1">
+              {metrics && typeof metrics.throughputKbps === 'number' ? `${metrics.throughputKbps} Kbps` : '0 Kbps'}
+            </div>
           </div>
         </div>
 

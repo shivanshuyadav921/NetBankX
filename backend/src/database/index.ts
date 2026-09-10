@@ -18,6 +18,7 @@ interface MemoryStore {
   networkNodes: any[];
   networkLinks: any[];
   networkEvents: any[];
+  serviceRequests: any[];
 }
 
 let mysqlPool: Pool | null = null;
@@ -41,7 +42,8 @@ const memoryStore: MemoryStore = {
   auditLogs: [],
   networkNodes: [],
   networkLinks: [],
-  networkEvents: []
+  networkEvents: [],
+  serviceRequests: []
 };
 
 // Seed initial memory store
@@ -167,6 +169,31 @@ export async function seedMemoryStore() {
 
   memoryStore.auditLogs = [
     { id: 1, actor_id: 'USR-HQ-001', actor_role: 'HQ_ADMIN', action: 'SYSTEM_BOOT', resource_type: 'SYSTEM', resource_id: 'NETBANKX-SERVER', ip_address: '127.0.0.1', status: 'SUCCESS', details: JSON.stringify({ message: 'Digital Twin and Banking Core Initialized' }), created_at: new Date().toISOString() }
+  ];
+
+  memoryStore.serviceRequests = [
+    {
+      id: 'REQ-10021',
+      user_id: 'USR-CUST-001',
+      category: 'CHEQUE_BOOK',
+      title: 'Cheque Book Request',
+      description: '25-leaf personalized cheque book',
+      status: 'RESOLVED',
+      priority: 'LOW',
+      created_at: new Date(Date.now() - 86400000 * 20).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 18).toISOString()
+    },
+    {
+      id: 'REQ-10045',
+      user_id: 'USR-CUST-001',
+      category: 'STATEMENT',
+      title: 'Statement Dispatch',
+      description: 'Previous FY financial statement with digital signature',
+      status: 'RESOLVED',
+      priority: 'LOW',
+      created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
+      updated_at: new Date(Date.now() - 86400000 * 11).toISOString()
+    }
   ];
 }
 
@@ -481,10 +508,33 @@ function executeMemoryQuery<T = any>(sql: string, params: any[] = []): T[] {
       }
       return results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as unknown as T[];
     }
+
+    if (upper.includes('FROM SERVICE_REQUESTS')) {
+      let results = [...memoryStore.serviceRequests];
+      if (upper.includes('WHERE USER_ID =')) {
+        results = results.filter(r => r.user_id === params[0]);
+      }
+      return results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as unknown as T[];
+    }
   }
 
   // 2. INSERT queries
   if (upper.startsWith('INSERT INTO')) {
+    if (upper.includes('INTO SERVICE_REQUESTS')) {
+      const req = {
+        id: params[0],
+        user_id: params[1],
+        category: params[2],
+        title: params[3] || 'Service Ticket',
+        description: params[4],
+        status: params[5] || 'IN_REVIEW',
+        priority: params[6] || 'MEDIUM',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      memoryStore.serviceRequests.push(req);
+      return [{ insertId: req.id }] as unknown as T[];
+    }
     if (upper.includes('INTO TRANSACTIONS')) {
       if (memoryStore.transactions.some(transaction => transaction.idempotency_key === params[2])) {
         const duplicateError = new Error('Duplicate idempotency_key');

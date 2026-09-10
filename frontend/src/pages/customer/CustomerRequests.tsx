@@ -1,22 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '../../components/layout/Header';
 import { Badge } from '../../components/common/Badge';
-import { Send, CheckCircle2 } from 'lucide-react';
+import { ApiClient } from '../../services/api';
+import { Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export const CustomerRequests: React.FC = () => {
   const [requestType, setRequestType] = useState<string>('CHEQUE_BOOK');
   const [details, setDetails] = useState<string>('');
-  const [submitted, setSubmitted] = useState<boolean>(false);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [successTicketId, setSuccessTicketId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const existingRequests = [
-    { id: 'REQ-10021', type: 'Cheque Book Request', status: 'COMPLETED', date: '2026-08-20', details: '25-leaf personalized cheque book' },
-    { id: 'REQ-10045', type: 'Statement Dispatch', status: 'COMPLETED', date: '2026-08-28', details: 'Previous FY financial statement' }
-  ];
+  useEffect(() => {
+    async function fetchRequests() {
+      setIsLoading(true);
+      try {
+        const data = await ApiClient.getServiceRequests();
+        setRequests(data || []);
+      } catch (err: any) {
+        console.error('Error loading service requests:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchRequests();
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setDetails('');
+    if (!details.trim()) return;
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setSuccessTicketId(null);
+
+    try {
+      const categoryNames: Record<string, string> = {
+        CHEQUE_BOOK: 'Cheque Book Issuance',
+        DEBIT_CARD: 'Debit Card Replacement',
+        STATEMENT: 'Physical Statement Request',
+        KYC_UPDATE: 'KYC Profile Address Update'
+      };
+
+      const newTicket = await ApiClient.createServiceRequest({
+        category: requestType,
+        title: categoryNames[requestType] || `${requestType} Request`,
+        description: details.trim(),
+        priority: 'MEDIUM'
+      });
+
+      setSuccessTicketId(newTicket.id);
+      setDetails('');
+      setRequests(prev => [newTicket, ...prev]);
+    } catch (err: any) {
+      console.error('Failed to submit service ticket:', err);
+      setErrorMessage(err.message || 'Failed to submit service ticket. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'RESOLVED':
+      case 'COMPLETED':
+        return 'success';
+      case 'IN_REVIEW':
+        return 'warning';
+      case 'REJECTED':
+        return 'danger';
+      default:
+        return 'info';
+    }
   };
 
   return (
@@ -31,12 +88,19 @@ export const CustomerRequests: React.FC = () => {
           {/* Form */}
           <div className="lg:col-span-5 luxury-card p-6">
             <h3 className="font-bold text-luxury-text text-sm mb-1">Submit New Service Ticket</h3>
-            <p className="text-xs text-luxury-textMuted mb-5">Requests are routed directly to your branch manager</p>
+            <p className="text-xs text-luxury-textMuted mb-5">Requests are persisted in the core ledger and routed to your branch</p>
 
-            {submitted && (
+            {successTicketId && (
               <div className="p-3 mb-4 rounded-lg bg-luxury-successBg border border-luxury-successBorder text-luxury-forest text-xs flex items-center gap-2 font-mono">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Ticket submitted successfully! Assigned ID: REQ-{Math.floor(10000 + Math.random() * 90000)}</span>
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Ticket registered in ledger! Assigned ID: <strong>{successTicketId}</strong></span>
+              </div>
+            )}
+
+            {errorMessage && (
+              <div className="p-3 mb-4 rounded-lg bg-luxury-dangerBg border border-luxury-dangerBorder text-luxury-burgundy text-xs flex items-center gap-2 font-mono">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
             )}
 
@@ -73,38 +137,60 @@ export const CustomerRequests: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-luxury-slate hover:bg-luxury-slateHover text-white font-semibold rounded-lg shadow-luxury-sm hover:shadow-luxury-md transition-all flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-2.5 bg-luxury-slate hover:bg-luxury-slateHover text-white font-semibold rounded-lg shadow-luxury-sm hover:shadow-luxury-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Send className="w-4 h-4" />
-                <span>Submit Ticket</span>
+                {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span>{isSubmitting ? 'Submitting to Ledger...' : 'Submit Ticket'}</span>
               </button>
             </form>
           </div>
 
           {/* History */}
           <div className="lg:col-span-7 luxury-card p-6">
-            <h3 className="font-bold text-luxury-text text-sm mb-1">Previous Service Tickets</h3>
-            <p className="text-xs text-luxury-textMuted mb-4">Historical requests and fulfillment logs</p>
-
-            <div className="space-y-3 font-mono text-xs">
-              {existingRequests.map(r => (
-                <div key={r.id} className="p-4 bg-luxury-subtle rounded-lg border border-luxury-borderSubtle flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 font-bold text-luxury-text">
-                      <span>{r.type}</span>
-                      <span className="text-luxury-textMuted font-normal">({r.id})</span>
-                    </div>
-                    <div className="text-luxury-textSecondary font-sans text-xs mt-1">{r.details}</div>
-                    <div className="text-[10px] text-luxury-textMuted mt-2">Submitted: {r.date}</div>
-                  </div>
-                  <Badge variant="success">{r.status}</Badge>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-luxury-text text-sm mb-1">Service Tickets History</h3>
+                <p className="text-xs text-luxury-textMuted">Persisted requests and fulfillment status</p>
+              </div>
+              <span className="text-xs font-mono text-luxury-textMuted">{requests.length} total tickets</span>
             </div>
+
+            {isLoading ? (
+              <div className="p-8 text-center text-xs text-luxury-textMuted font-mono flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Loading tickets from ledger...</span>
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="p-8 text-center text-xs text-luxury-textMuted font-sans">
+                No previous service tickets registered for your account.
+              </div>
+            ) : (
+              <div className="space-y-3 font-mono text-xs">
+                {requests.map(r => (
+                  <div key={r.id} className="p-4 bg-luxury-subtle rounded-lg border border-luxury-borderSubtle flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 font-bold text-luxury-text">
+                        <span>{r.title || r.category}</span>
+                        <span className="text-luxury-textMuted font-normal text-[11px]">({r.id})</span>
+                      </div>
+                      <div className="text-luxury-textSecondary font-sans text-xs mt-1">{r.description}</div>
+                      <div className="text-[10px] text-luxury-textMuted mt-2">
+                        Submitted: {new Date(r.createdAt || r.created_at || Date.now()).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                    <Badge variant={getStatusBadgeVariant(r.status)}>
+                      {r.status?.replace(/_/g, ' ') || 'IN REVIEW'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 

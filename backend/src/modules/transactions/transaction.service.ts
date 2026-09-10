@@ -278,7 +278,7 @@ export class TransactionService {
              sa.account_number as source_acc_number, da.account_number as dest_acc_number,
              su.first_name as src_first_name, su.last_name as src_last_name,
              du.first_name as dst_first_name, du.last_name as dst_last_name
-      FROM transactions t
+             FROM transactions t
       JOIN accounts sa ON t.source_account_id = sa.id
       JOIN accounts da ON t.destination_account_id = da.id
       JOIN customers sc ON sa.customer_id = sc.id
@@ -288,7 +288,27 @@ export class TransactionService {
       WHERE t.source_account_id = ? OR t.destination_account_id = ?
       ORDER BY t.created_at DESC
     `;
-    return await executeQuery<any>(sql, [accountId, accountId]);
+    const rows = await executeQuery<any>(sql, [accountId, accountId]);
+    return rows.map(r => ({
+      ...r,
+      id: r.id,
+      referenceNo: r.reference_no,
+      idempotencyKey: r.idempotency_key,
+      sourceAccountId: r.source_account_id,
+      destinationAccountId: r.destination_account_id,
+      amount: String(r.amount),
+      currency: r.currency,
+      type: r.type,
+      state: r.state,
+      description: r.description,
+      routingPath: typeof r.routing_path === 'string' ? JSON.parse(r.routing_path || '[]') : r.routing_path,
+      totalLatencyMs: r.total_latency_ms,
+      packetsTransmitted: r.packets_transmitted,
+      packetsLost: r.packets_lost,
+      retransmissions: r.retransmissions,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
   }
 
   static async getAllTransactions(limit: number = 50): Promise<any[]> {
@@ -304,7 +324,27 @@ export class TransactionService {
       ORDER BY t.created_at DESC
       LIMIT ?
     `;
-    return await executeQuery<any>(sql, [limit]);
+    const rows = await executeQuery<any>(sql, [limit]);
+    return rows.map(r => ({
+      ...r,
+      id: r.id,
+      referenceNo: r.reference_no,
+      idempotencyKey: r.idempotency_key,
+      sourceAccountId: r.source_account_id,
+      destinationAccountId: r.destination_account_id,
+      amount: String(r.amount),
+      currency: r.currency,
+      type: r.type,
+      state: r.state,
+      description: r.description,
+      routingPath: typeof r.routing_path === 'string' ? JSON.parse(r.routing_path || '[]') : r.routing_path,
+      totalLatencyMs: r.total_latency_ms,
+      packetsTransmitted: r.packets_transmitted,
+      packetsLost: r.packets_lost,
+      retransmissions: r.retransmissions,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
   }
 
   static async getTransactionEvents(txnId: string): Promise<TransactionEvent[]> {

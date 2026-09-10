@@ -57,4 +57,53 @@ export class UserService {
     `;
     return await executeQuery<any>(sql);
   }
+
+  static async getServiceRequests(userId: string): Promise<any[]> {
+    const sql = `
+      SELECT id, user_id, category, title, description, status, priority, created_at, updated_at
+      FROM service_requests
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `;
+    const rows = await executeQuery<any>(sql, [userId]);
+    return rows.map(r => ({
+      id: r.id,
+      userId: r.user_id,
+      category: r.category,
+      title: r.title,
+      description: r.description,
+      status: r.status,
+      priority: r.priority,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
+  }
+
+  static async createServiceRequest(
+    userId: string,
+    category: string,
+    title: string,
+    description: string,
+    priority: string = 'MEDIUM'
+  ): Promise<any> {
+    const id = `REQ-${Math.floor(10000 + Math.random() * 90000)}`;
+    const sql = `
+      INSERT INTO service_requests (id, user_id, category, title, description, status, priority, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'IN_REVIEW', ?, NOW(), NOW())
+    `;
+    await executeQuery(sql, [id, userId, category, title, description, 'IN_REVIEW', priority]);
+
+    return {
+      id,
+      userId,
+      category,
+      title,
+      description,
+      status: 'IN_REVIEW',
+      priority,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
 }
+

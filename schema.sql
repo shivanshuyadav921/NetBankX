@@ -247,3 +247,21 @@ CREATE TABLE network_events (
 
 CREATE INDEX idx_netev_txnid ON network_events(transaction_id);
 CREATE INDEX idx_netev_type ON network_events(event_type);
+
+-- 15. Service Requests (Branch Fulfillment Tickets)
+CREATE TABLE service_requests (
+    id VARCHAR(32) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    category VARCHAR(64) NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'IN_REVIEW', -- 'PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED'
+    priority VARCHAR(16) NOT NULL DEFAULT 'MEDIUM', -- 'LOW', 'MEDIUM', 'HIGH', 'URGENT'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sr_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_sr_user ON service_requests(user_id);
+CREATE INDEX idx_sr_status ON service_requests(status);
+

@@ -155,3 +155,9 @@ INSERT INTO transactions (id, reference_no, source_account_id, destination_accou
 INSERT INTO audit_logs (actor_id, actor_role, action, resource_type, resource_id, ip_address, status, details) VALUES
 ('USR-HQ-001', 'HQ_ADMIN', 'SYSTEM_INITIALIZATION', 'SYSTEM', 'NETBANKX-CORE', '127.0.0.1', 'SUCCESS', '{"version": "2.0.0", "environment": "production", "nodes_online": 15, "links_active": 18}'),
 ('USR-CUST-001', 'CUSTOMER', 'AUTH_LOGIN', 'USER', 'USR-CUST-001', '192.168.1.45', 'SUCCESS', '{"method": "PASSWORD_BCRYPT", "session_issued": true}');
+
+-- 11. Service Requests Seed
+INSERT INTO service_requests (id, user_id, category, title, description, status, priority) VALUES
+('REQ-10021', 'USR-CUST-001', 'CHEQUE_BOOK', 'Cheque Book Request', '25-leaf personalized cheque book', 'RESOLVED', 'LOW'),
+('REQ-10045', 'USR-CUST-001', 'STATEMENT', 'Statement Dispatch', 'Previous FY financial statement with digital signature', 'RESOLVED', 'LOW');
+

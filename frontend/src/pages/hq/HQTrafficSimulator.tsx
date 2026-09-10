@@ -36,6 +36,7 @@ export const HQTrafficSimulator: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Load branches
   useEffect(() => {
@@ -147,6 +148,7 @@ export const HQTrafficSimulator: React.FC = () => {
       setSelectedPacket(null);
       setSimulationEvents([]);
       setShowSummaryModal(false);
+      setErrorMessage(null);
 
       const session = await ApiClient.simulateTraffic({
         sourceBranchId,
@@ -165,7 +167,7 @@ export const HQTrafficSimulator: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to start traffic simulation:', err);
       setIsRunning(false);
-      alert(`Simulation failed: ${err.message}`);
+      setErrorMessage(`Simulation failed: ${err.message || 'Unable to start simulation session'}`);
     }
   };
 
@@ -257,6 +259,18 @@ export const HQTrafficSimulator: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {errorMessage && (
+          <div className="p-4 rounded-xl bg-luxury-dangerBg border border-luxury-dangerBorder text-luxury-burgundy text-xs flex items-center justify-between font-mono">
+            <span>{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-luxury-burgundy font-bold hover:underline ml-4"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* 1. Control Panel & Scenario Presets */}
         <div className="luxury-card p-6 space-y-6">

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Header } from '../../components/layout/Header';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { ApiClient } from '../../services/api';
 import { Transaction } from '../../types';
-import { Search } from 'lucide-react';
+import { Search, Download, Network, ArrowRight } from 'lucide-react';
 
 export const CustomerHistory: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -36,6 +37,41 @@ export const CustomerHistory: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (filtered.length === 0) return;
+    const headers = ['Reference', 'Date', 'SourceAccount', 'DestAccount', 'Amount', 'Currency', 'State', 'LatencyMs', 'WANRoute'];
+    const rows = filtered.map(t => [
+      t.referenceNo || t.id,
+      new Date(t.createdAt || (t as any).created_at || Date.now()).toISOString(),
+      t.source_acc_number || t.sourceAccountId,
+      t.dest_acc_number || t.destinationAccountId,
+      t.amount,
+      t.currency || 'INR',
+      t.state,
+      t.totalLatencyMs || 24,
+      `"${Array.isArray(t.routingPath) ? t.routingPath.join(' -> ') : ''}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `NetBankX_Statement_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportJSON = () => {
+    if (filtered.length === 0) return;
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(filtered, null, 2))}`;
+    const link = document.createElement('a');
+    link.setAttribute('href', jsonString);
+    link.setAttribute('download', `NetBankX_Statement_${Date.now()}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filtered = transactions.filter(t => {
     const matchesSearch =
       (t.referenceNo || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -51,6 +87,26 @@ export const CustomerHistory: React.FC = () => {
       <Header
         title="Transaction History & Ledger"
         subtitle="Immutable record of executed banking transfers and packet metrics"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-subtle hover:bg-luxury-surfaceElevated border border-luxury-border text-luxury-text text-xs font-semibold shadow-luxury-sm transition-all disabled:opacity-40"
+            >
+              <Download className="w-3.5 h-3.5 text-luxury-slate" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={handleExportJSON}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-slate hover:bg-luxury-slateHover text-white text-xs font-semibold shadow-luxury-sm transition-all disabled:opacity-40"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export JSON</span>
+            </button>
+          </div>
+        }
       />
 
       <div className="p-8 space-y-6 flex-1 bg-luxury-bg">
@@ -109,7 +165,7 @@ export const CustomerHistory: React.FC = () => {
                   </tr>
                 ) : (
                   filtered.map(txn => {
-                    const dateStr = new Date(txn.createdAt).toLocaleString('en-IN');
+                    const dateStr = new Date(txn.createdAt || (txn as any).created_at || Date.now()).toLocaleString('en-IN');
                     const path = Array.isArray(txn.routingPath)
                       ? txn.routingPath.join(' ➔ ')
                       : 'Standard Backbone';
@@ -132,12 +188,22 @@ export const CustomerHistory: React.FC = () => {
                           ₹{parseFloat(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="p-4 text-center">
-                          <button
-                            onClick={() => handleInspect(txn.id)}
-                            className="px-2.5 py-1 rounded bg-luxury-subtle hover:bg-luxury-borderSubtle text-luxury-textSecondary hover:text-luxury-text text-[11px] font-semibold transition-colors"
-                          >
-                            Details
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleInspect(txn.id)}
+                              className="px-2.5 py-1 rounded bg-luxury-subtle hover:bg-luxury-borderSubtle text-luxury-textSecondary hover:text-luxury-text text-[11px] font-semibold transition-colors"
+                            >
+                              Details
+                            </button>
+                            <Link
+                              to={`/customer/packet-journey/${txn.id}`}
+                              className="px-2.5 py-1 rounded bg-luxury-slate/10 hover:bg-luxury-slate/20 text-luxury-slate text-[11px] font-semibold transition-colors flex items-center gap-1"
+                              title="Inspect Hop-by-Hop Packet Simulation"
+                            >
+                              <Network className="w-3 h-3" />
+                              <span>Trace</span>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -176,6 +242,21 @@ export const CustomerHistory: React.FC = () => {
                 <span className="text-luxury-textMuted block text-[10px]">PACKETS TRANSMITTED</span>
                 <span className="text-luxury-text">{selectedTxn.packetsTransmitted} sent ({selectedTxn.packetsLost} lost)</span>
               </div>
+            </div>
+
+            {/* Hop-by-Hop Link */}
+            <div className="p-3 bg-luxury-surface border border-luxury-border rounded-lg flex items-center justify-between">
+              <div>
+                <div className="font-bold text-luxury-text">Network Packet Journey</div>
+                <div className="text-[11px] text-luxury-textMuted">Inspect Dijkstra calculated route & 7-layer OSI encapsulation</div>
+              </div>
+              <Link
+                to={`/customer/packet-journey/${selectedTxn.id}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-slate text-white text-xs font-semibold hover:bg-luxury-slateHover transition-all"
+              >
+                <span>Open Packet Trace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
             {/* State Transition Events */}

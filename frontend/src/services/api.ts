@@ -137,6 +137,22 @@ export class ApiClient {
     return this.request('/users/regions');
   }
 
+  public static async getServiceRequests() {
+    return this.request('/users/service-requests');
+  }
+
+  public static async createServiceRequest(payload: {
+    category: string;
+    title?: string;
+    description: string;
+    priority?: string;
+  }) {
+    return this.request('/users/service-requests', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
   // Network Simulation & Lab
   public static async getTopology() {
     return this.request('/network/topology');

@@ -53,21 +53,21 @@ export const HQDashboard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="National Regions"
-            value={regions.length || 3}
+            value={regions.length}
             subtitle="MH, DL, KA Hub Gateways"
             icon={<Building2 className="w-5 h-5 text-luxury-slate" />}
             accentColor="slate"
           />
           <StatCard
             title="Total Network Branches"
-            value={branches.length || 10}
+            value={branches.length}
             subtitle="Edge Routers Connected"
             icon={<Network className="w-5 h-5 text-luxury-teal" />}
             accentColor="teal"
           />
           <StatCard
             title="Total Active Accounts"
-            value={customers.length || 15}
+            value={customers.length}
             subtitle="Verified Ledger Accounts"
             icon={<Users className="w-5 h-5 text-luxury-forest" />}
             accentColor="forest"

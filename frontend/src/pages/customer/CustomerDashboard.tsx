@@ -36,6 +36,14 @@ export const CustomerDashboard: React.FC = () => {
 
   const primaryAccount = accounts[0];
 
+  // Dynamic calculation of real debit outflow from ledger
+  const debitTransactions = transactions.filter(
+    t => t.sourceAccountId === primaryAccount?.id || (t as any).source_account_id === primaryAccount?.id
+  );
+  const totalOutflow = debitTransactions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+  const formattedOutflow = `₹ ${totalOutflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const outflowSubtitle = `${debitTransactions.length} transfer${debitTransactions.length === 1 ? '' : 's'} recorded`;
+
   return (
     <div className="flex-1 flex flex-col bg-luxury-bg">
       <Header
@@ -116,10 +124,10 @@ export const CustomerDashboard: React.FC = () => {
           />
           <StatCard
             title="Monthly Outflow"
-            value="₹ 45,200"
-            subtitle="12 transactions this cycle"
+            value={formattedOutflow}
+            subtitle={outflowSubtitle}
             icon={<Send className="w-5 h-5 text-luxury-leather" />}
-            trend="4.2%"
+            trend={`${debitTransactions.length} txns`}
             trendPositive={true}
             accentColor="gold"
           />
@@ -191,7 +199,7 @@ export const CustomerDashboard: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="py-3 px-3 text-luxury-textMuted text-[11px]">
-                        {new Date(txn.createdAt).toLocaleString('en-IN')}
+                        {new Date(txn.createdAt || (txn as any).created_at || Date.now()).toLocaleString('en-IN')}
                       </td>
                     </tr>
                   ))

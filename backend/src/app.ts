@@ -110,6 +110,8 @@ export function createApp(): express.Application {
   api.get('/users/customer-profile', requireAuth, UserController.getCustomerProfile);
   api.get('/users/branches', requireAuth, requireRole(['HQ_ADMIN', 'REGIONAL_MANAGER', 'BRANCH_STAFF']), UserController.getBranches);
   api.get('/users/regions', requireAuth, requireRole(['HQ_ADMIN', 'REGIONAL_MANAGER']), UserController.getRegions);
+  api.get('/users/service-requests', requireAuth, UserController.getServiceRequests);
+  api.post('/users/service-requests', requireAuth, UserController.createServiceRequest);
 
   // Account Routes
   api.get('/accounts/my-accounts', requireAuth, AccountController.getMyAccounts);
